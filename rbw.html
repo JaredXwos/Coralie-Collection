@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="coralie-page-build" content="rbw-coralie-v2">
+<meta name="coralie-page-build" content="rbw-coralie-v2-vote-snapshots">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Really Boring Website</title>
@@ -915,11 +915,9 @@ class ResetMessage extends MessageBase {
 
 class ScoreMessage extends MessageBase {
   static type = "score";
-  // score: the sender's own NEW total, self-reported — not derived by
-  // anyone else from votes, since different peers could have received a
-  // different subset of votes by the time someone presses Next. Not
-  // gameId-scoped: scores persist across restarts, same reasoning as
-  // username/gameStatus.
+  // Compatibility announcement for the sender's final cumulative score.
+  // New clients derive every participant's score from the reconciled vote
+  // map; this message keeps older clients and menu displays informed.
   constructor({ score, ts }) {
     super({ score, ts });
   }
@@ -1042,36 +1040,78 @@ class VotingStageMessage extends MessageBase {
 class VoteMessage extends MessageBase {
   static type = "vote";
   // gameId, questionIndex, answerOwnerPubkeyHex: which answer is being voted on
-  // value: -2..+2
-  constructor({ gameId, questionIndex, answerOwnerPubkeyHex, value, ts }) {
-    super({ gameId, questionIndex, answerOwnerPubkeyHex, value, ts });
+  // voterPubkeyHex: explicit voter identity; direct messages must match the
+  // Coralie envelope sender. value: -2..+2.
+  constructor({ gameId, questionIndex, answerOwnerPubkeyHex, voterPubkeyHex, value, ts }) {
+    super({ gameId, questionIndex, answerOwnerPubkeyHex, voterPubkeyHex, value, ts });
   }
   static validate(obj) {
     super.validate(obj);
     if (typeof obj.gameId !== "string") throw new Error("vote: missing gameId");
-    if (typeof obj.questionIndex !== "number") throw new Error("vote: bad questionIndex");
+    if (!Number.isInteger(obj.questionIndex) || obj.questionIndex < 0) {
+      throw new Error("vote: bad questionIndex");
+    }
     if (typeof obj.answerOwnerPubkeyHex !== "string") throw new Error("vote: bad answerOwnerPubkeyHex");
-    if (typeof obj.value !== "number" || obj.value < -2 || obj.value > 2) {
+    if (typeof obj.voterPubkeyHex !== "string") throw new Error("vote: bad voterPubkeyHex");
+    if (!Number.isInteger(obj.value) || obj.value < -2 || obj.value > 2) {
       throw new Error("vote: bad value");
     }
   }
 }
 
-class NextMessage extends MessageBase {
-  static type = "next";
-  // gameId: which game
-  // questionIndex: the index being advanced TO
-  constructor({ gameId, questionIndex, ts }) {
-    super({ gameId, questionIndex, ts });
-  }
-  static appliesTo(msg, state) {
-    if (!super.appliesTo(msg, state)) return false; // gameId check
-    return msg.questionIndex > state.questionIndex; // ignore stale/duplicate next calls
+class VotingRoundClosedMessage extends MessageBase {
+  static type = "votingRoundClosed";
+  // questionIndex: the question being closed
+  // nextQuestionIndex: the voting question being entered
+  // votes: serialized vote-map entries for questionIndex only
+  constructor({ gameId, questionIndex, nextQuestionIndex, votes, ts }) {
+    super({ gameId, questionIndex, nextQuestionIndex, votes, ts });
   }
   static validate(obj) {
     super.validate(obj);
-    if (typeof obj.gameId !== "string") throw new Error("next: missing gameId");
-    if (typeof obj.questionIndex !== "number") throw new Error("next: bad questionIndex");
+    if (typeof obj.gameId !== "string") throw new Error("votingRoundClosed: missing gameId");
+    if (!Number.isInteger(obj.questionIndex) || obj.questionIndex < 0) {
+      throw new Error("votingRoundClosed: bad questionIndex");
+    }
+    if (!Number.isInteger(obj.nextQuestionIndex) || obj.nextQuestionIndex <= obj.questionIndex) {
+      throw new Error("votingRoundClosed: bad nextQuestionIndex");
+    }
+    if (!Array.isArray(obj.votes)) throw new Error("votingRoundClosed: bad votes snapshot");
+  }
+}
+
+class VotingFinishedMessage extends MessageBase {
+  static type = "votingFinished";
+  // votes: the sender's entire merged vote map
+  // finishedParticipants: aggregate set of participants known to have
+  // reached the finalisation phase
+  constructor({ gameId, votes, finishedParticipants, ts }) {
+    super({ gameId, votes, finishedParticipants, ts });
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("votingFinished: missing gameId");
+    if (!Array.isArray(obj.votes)) throw new Error("votingFinished: bad votes snapshot");
+    if (!Array.isArray(obj.finishedParticipants) ||
+        !obj.finishedParticipants.every((value) => typeof value === "string")) {
+      throw new Error("votingFinished: bad finishedParticipants");
+    }
+  }
+}
+
+class VotingFinalizationTimeoutMessage extends MessageBase {
+  static type = "votingFinalizationTimeout";
+  constructor({ gameId, ts }) {
+    super({ gameId, ts });
+  }
+  static appliesTo(msg, state) {
+    return msg.gameId === state.gameId && state.phase === "votingFinalizing";
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") {
+      throw new Error("votingFinalizationTimeout: missing gameId");
+    }
   }
 }
 
@@ -1087,7 +1127,9 @@ const MessageRegistry = {
   timeUp: TimeUpMessage,
   votingStage: VotingStageMessage,
   vote: VoteMessage,
-  next: NextMessage,
+  votingRoundClosed: VotingRoundClosedMessage,
+  votingFinished: VotingFinishedMessage,
+  votingFinalizationTimeout: VotingFinalizationTimeoutMessage,
 };
 
 // Turns a raw parsed-JSON object (from Bridge.decode) into a typed message
@@ -1309,7 +1351,7 @@ const GameState = {
   myPubkeyHex: null,
   myUsername: null,
   peers: new Map(),        // pubkeyHex -> { username, inGame, gameId }
-  phase: "menu",           // "menu" | "answering" | "voting"
+  phase: "menu",           // "menu" | "answering" | "voting" | "votingFinalizing"
   gameId: null,
   config: null,            // { letter, duration, qType, questions: string[] }
   participants: [],        // pubkeyHex[] snapshot at start/restart time
@@ -1317,7 +1359,13 @@ const GameState = {
   answers: new Map(),      // "qIndex:pubkeyHex" -> { input, ts }
   votes: new Map(),        // "qIndex:ownerPubkeyHex:voterPubkeyHex" -> { value, ts }
   lockedPeers: new Set(),  // pubkeyHex set, this game's timeUp senders
-  scores: new Map(),       // pubkeyHex -> { score, ts }, persists across restarts, wiped only by reset. ts guards against an out-of-order self-report clobbering a newer one.
+  scores: new Map(),       // pubkeyHex -> { score, ts }, persists until Reset
+  scoreBaseline: new Map(),// cumulative scores captured when this game starts
+  announcedVotingRounds: new Set(), // closed question indexes already propagated locally
+  finishedParticipants: new Set(),  // aggregate finalisation acknowledgements
+  lastFinishedSnapshotSignature: null,
+  finalizationTimerArmed: false,
+  finalizationCompleting: false,
   answeringDeadline: null, // wall-clock ms (Date.now()-comparable), NOT a countdown — see reduceStart
 };
 
@@ -1584,6 +1632,17 @@ function reduceStart(state, msg) {
   state.answers = new Map();   // fresh gameId => no prior answers can apply anyway
   state.votes = new Map();
   state.lockedPeers = new Set();
+  state.scoreBaseline = new Map(
+    [...state.scores.entries()].map(([pubkeyHex, entry]) => [
+      pubkeyHex,
+      { score: entry.score, ts: entry.ts },
+    ])
+  );
+  state.announcedVotingRounds = new Set();
+  state.finishedParticipants = new Set();
+  state.lastFinishedSnapshotSignature = null;
+  state.finalizationTimerArmed = false;
+  state.finalizationCompleting = false;
   // Derived from the message, not Date.now() here — every peer who applies
   // this same start message computes the identical absolute deadline,
   // regardless of small propagation-delay differences in when each of
@@ -1620,22 +1679,127 @@ function reduceVotingStage(state, msg) {
   }
 }
 
+function voteKey(questionIndex, answerOwnerPubkeyHex, voterPubkeyHex) {
+  return `${questionIndex}:${answerOwnerPubkeyHex}:${voterPubkeyHex}`;
+}
+
+function parseVoteKey(key) {
+  const parts = String(key).split(":");
+  if (parts.length !== 3) return null;
+  const questionIndex = Number(parts[0]);
+  if (!Number.isInteger(questionIndex) || questionIndex < 0) return null;
+  return {
+    questionIndex,
+    answerOwnerPubkeyHex: parts[1],
+    voterPubkeyHex: parts[2],
+  };
+}
+
+function isValidVoteEntry(entry) {
+  return entry &&
+    typeof entry === "object" &&
+    Number.isInteger(entry.value) &&
+    entry.value >= -2 &&
+    entry.value <= 2 &&
+    typeof entry.ts === "number";
+}
+
+function mergeVoteSnapshot(state, entries, expectedQuestionIndex = null) {
+  let changed = false;
+  for (const serializedEntry of entries || []) {
+    if (!Array.isArray(serializedEntry) || serializedEntry.length !== 2) continue;
+    const [key, entry] = serializedEntry;
+    const parsed = parseVoteKey(key);
+    if (!parsed || !isValidVoteEntry(entry)) continue;
+    if (expectedQuestionIndex !== null && parsed.questionIndex !== expectedQuestionIndex) continue;
+    if (parsed.questionIndex >= state.config.questions.length) continue;
+    if (!state.participants.includes(parsed.answerOwnerPubkeyHex)) continue;
+    if (!state.participants.includes(parsed.voterPubkeyHex)) continue;
+    if (parsed.answerOwnerPubkeyHex === parsed.voterPubkeyHex) continue;
+
+    const existing = state.votes.get(key);
+    if (!existing || entry.ts > existing.ts) {
+      state.votes.set(key, { value: entry.value, ts: entry.ts });
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function voteSnapshotForQuestion(state, questionIndex) {
+  return [...state.votes.entries()].filter(([key]) => {
+    const parsed = parseVoteKey(key);
+    return parsed && parsed.questionIndex === questionIndex;
+  });
+}
+
 function reduceVote(state, msg, meta) {
-  // Blank answers are not votable. Enforce this in the reducer as well as
-  // the UI so votes from older or modified clients cannot affect scoring.
+  // A direct vote must identify the same voter as the Coralie envelope.
+  // Snapshots are merged separately by the phase-boundary reducers.
+  if (msg.voterPubkeyHex !== meta.from) return;
+  if (msg.questionIndex >= state.config.questions.length) return;
+  if (!state.participants.includes(msg.answerOwnerPubkeyHex)) return;
+  if (!state.participants.includes(msg.voterPubkeyHex)) return;
+  if (msg.answerOwnerPubkeyHex === msg.voterPubkeyHex) return;
   if (!hasSubmittedAnswer(state, msg.questionIndex, msg.answerOwnerPubkeyHex)) return;
 
-  const voter = meta.from;
-  const key = `${msg.questionIndex}:${msg.answerOwnerPubkeyHex}:${voter}`;
+  const key = voteKey(msg.questionIndex, msg.answerOwnerPubkeyHex, msg.voterPubkeyHex);
   const existing = state.votes.get(key);
   if (!existing || msg.ts > existing.ts) {
     state.votes.set(key, { value: msg.value, ts: msg.ts });
   }
 }
 
-// Shared by reduceNext's end-of-game transition AND the mesh-failure
-// recovery path in handleBridgeEvent — both need to land GameState back
-// in the exact same "no game" shape.
+function reduceVotingRoundClosed(state, msg) {
+  mergeVoteSnapshot(state, msg.votes, msg.questionIndex);
+
+  // A close announcement is also a phase announcement. Move forward once,
+  // but keep merging repeated snapshots for the closed question.
+  if (state.phase === "voting" && msg.nextQuestionIndex > state.questionIndex) {
+    const lastQuestionIndex = state.config.questions.length - 1;
+    state.questionIndex = Math.min(msg.nextQuestionIndex, lastQuestionIndex);
+  }
+}
+
+function reduceVotingFinished(state, msg) {
+  mergeVoteSnapshot(state, msg.votes);
+
+  for (const pubkeyHex of msg.finishedParticipants) {
+    if (state.participants.includes(pubkeyHex)) {
+      state.finishedParticipants.add(pubkeyHex);
+    }
+  }
+
+  // Receiving the final phase causes this node to close too, matching the
+  // earlier voting-stage propagation behaviour.
+  if (state.phase === "voting") {
+    state.phase = "votingFinalizing";
+  }
+  if (state.phase === "votingFinalizing") {
+    state.finishedParticipants.add(state.myPubkeyHex);
+  }
+}
+
+function calculateEarnedScore(state, ownerPubkeyHex) {
+  let earned = 0;
+  for (let questionIndex = 0; questionIndex < state.config.questions.length; questionIndex++) {
+    if (sumVotesForAnswer(state, questionIndex, ownerPubkeyHex) > 0) earned++;
+  }
+  return earned;
+}
+
+function finalizeScores(state, ts) {
+  for (const pubkeyHex of state.participants) {
+    const baseline = state.scoreBaseline.get(pubkeyHex)?.score ?? 0;
+    state.scores.set(pubkeyHex, {
+      score: baseline + calculateEarnedScore(state, pubkeyHex),
+      ts,
+    });
+  }
+}
+
+// Shared by final voting completion AND the mesh-failure recovery path —
+// both need to land GameState back in the exact same "no game" shape.
 function resetToMenu(state) {
   state.phase = "menu";
   state.gameId = null;
@@ -1645,12 +1809,16 @@ function resetToMenu(state) {
   state.answers = new Map();
   state.votes = new Map();
   state.lockedPeers = new Set();
+  state.scoreBaseline = new Map();
+  state.announcedVotingRounds = new Set();
+  state.finishedParticipants = new Set();
+  state.lastFinishedSnapshotSignature = null;
+  state.finalizationTimerArmed = false;
+  state.finalizationCompleting = false;
   state.answeringDeadline = null;
 }
 
-// Shared by reduceNext's own-score accumulation AND Render.voting's live
-// per-answer display — one definition of "how many points has this answer
-// gotten so far," used everywhere that needs it.
+// Shared by scoring and Render.voting's live per-answer display.
 function hasSubmittedAnswer(state, questionIndex, ownerPubkeyHex) {
   const entry = state.answers.get(`${questionIndex}:${ownerPubkeyHex}`);
   return Boolean(entry && typeof entry.input === "string" && entry.input.trim().length > 0);
@@ -1661,43 +1829,33 @@ function sumVotesForAnswer(state, questionIndex, ownerPubkeyHex) {
 
   let total = 0;
   for (const [key, entry] of state.votes.entries()) {
-    const [qIdx, owner] = key.split(":");
-    if (Number(qIdx) === questionIndex && owner === ownerPubkeyHex) total += entry.value;
+    const parsed = parseVoteKey(key);
+    if (parsed && parsed.questionIndex === questionIndex &&
+        parsed.answerOwnerPubkeyHex === ownerPubkeyHex) {
+      total += entry.value;
+    }
   }
   return total;
 }
+
 function countVotesForAnswer(state, questionIndex, ownerPubkeyHex) {
   if (!hasSubmittedAnswer(state, questionIndex, ownerPubkeyHex)) return 0;
 
   let count = 0;
   for (const [key] of state.votes.entries()) {
-    const [qIdx, owner] = key.split(":");
-    if (Number(qIdx) === questionIndex && owner === ownerPubkeyHex) count++;
+    const parsed = parseVoteKey(key);
+    if (parsed && parsed.questionIndex === questionIndex &&
+        parsed.answerOwnerPubkeyHex === ownerPubkeyHex) {
+      count++;
+    }
   }
   return count;
 }
 
-function reduceNext(state, msg) {
-  // Bank YOUR OWN points for the question you're leaving. +1 if the round's
-  // vote sum came out positive, 0 otherwise (zero itself does NOT count as
-  // positive). This is why scoring is "peer as authority for their own
-  // total": everyone banks their OWN score from THEIR OWN view of the
-  // votes, rather than trying to derive everyone else's score from data
-  // that might not have finished propagating to them yet. Effects.onNext
-  // broadcasts this new total.
-  const finishedIndex = state.questionIndex;
-  const roundSum = sumVotesForAnswer(state, finishedIndex, state.myPubkeyHex);
-  const earned = roundSum > 0 ? 1 : 0;
-  const prevScore = state.scores.get(state.myPubkeyHex)?.score ?? 0;
-  state.scores.set(state.myPubkeyHex, { score: prevScore + earned, ts: msg.ts });
-
-  state.questionIndex = msg.questionIndex;
-  if (state.questionIndex >= state.config.questions.length) {
-    // past the last question: no results screen, straight back to menu
-    resetToMenu(state);
-    // GameStatusMessage({ inGame: false }) is broadcast by Effects.onNext,
-    // not here — Reduce only mutates state, never causes side effects.
-  }
+function reduceVotingFinalizationTimeout(state, msg, meta) {
+  if (meta.origin !== "local") return;
+  finalizeScores(state, msg.ts);
+  resetToMenu(state);
 }
 
 function reduceScore(state, msg, meta) {
@@ -1719,7 +1877,9 @@ const Reduce = {
   timeUp: reduceTimeUp,
   votingStage: reduceVotingStage,
   vote: reduceVote,
-  next: reduceNext,
+  votingRoundClosed: reduceVotingRoundClosed,
+  votingFinished: reduceVotingFinished,
+  votingFinalizationTimeout: reduceVotingFinalizationTimeout,
 };
 
 // Plain JS timers, not the bridge's queueTimer/cancelTimer.
@@ -1749,9 +1909,11 @@ function handleTimerFired({ purpose, gameId }) {
   if (gameId !== GameState.gameId) return; // stale timer, game already moved on
   if (purpose === "answeringTimeout") Actions.timeUp();
   if (purpose === "voteStageTimeout") Effects.broadcastVotingStage(GameState);
+  if (purpose === "votingFinalizationTimeout") Actions.finalizeVoting();
 }
 
-const VOTE_STAGE_GRACE_SECONDS = 5; // how long to wait for stragglers after YOUR OWN lock, before proceeding without them
+const VOTE_STAGE_GRACE_SECONDS = 5; // answering-stage straggler allowance
+const VOTING_FINALIZATION_GRACE_SECONDS = 5; // wait for aggregate end-of-voting acknowledgements
 
 // ============================================================
 // EFFECTS — the only layer allowed to cause anything (broadcast
@@ -1763,7 +1925,13 @@ const Effects = {
   after(state, msg, meta) {
     if (msg.type === "start") Effects.onStart(state);
     if (msg.type === "timeUp") Effects.onTimeUp(state, msg, meta);
-    if (msg.type === "next") Effects.onNext(state);
+    if (msg.type === "votingRoundClosed") Effects.onVotingRoundClosed(state, msg);
+    if ((msg.type === "vote" || msg.type === "votingRoundClosed") &&
+        state.phase === "votingFinalizing") {
+      Effects.onVotingFinished(state);
+    }
+    if (msg.type === "votingFinished") Effects.onVotingFinished(state);
+    if (msg.type === "votingFinalizationTimeout") Effects.onVotingFinalized(state, msg);
   },
 
   onStart(state) {
@@ -1777,17 +1945,78 @@ const Effects = {
     Timers.start(`answering:${state.gameId}`, delaySeconds, "answeringTimeout", state.gameId);
   },
 
-  onNext(state) {
-    // Broadcast the total reduceNext just banked, every time — not only on
-    // the final question. Everyone else records this self-report rather
-    // than trying to derive it themselves (see reduceNext's comment).
-    const mine = state.scores.get(state.myPubkeyHex);
-    Bridge.broadcastToAllPeers(new ScoreMessage({ score: mine.score, ts: mine.ts }));
+  onVotingRoundClosed(state, msg) {
+    if (state.phase !== "voting") return;
+    if (state.questionIndex !== msg.nextQuestionIndex) return;
+    if (state.announcedVotingRounds.has(msg.questionIndex)) return;
 
-    if (state.phase === "menu") {
-      // reduceNext just crossed the last question — game's actually over
-      Bridge.broadcastToAllPeers(new GameStatusMessage({ inGame: false, ts: Date.now() }));
+    state.announcedVotingRounds.add(msg.questionIndex);
+    Bridge.broadcastToAllPeers(new VotingRoundClosedMessage({
+      gameId: state.gameId,
+      questionIndex: msg.questionIndex,
+      nextQuestionIndex: msg.nextQuestionIndex,
+      votes: voteSnapshotForQuestion(state, msg.questionIndex),
+      ts: Date.now(),
+    }));
+  },
+
+  votingFinishedSignature(state) {
+    const finished = [...state.finishedParticipants].sort();
+    const votes = [...state.votes.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, entry.value, entry.ts]);
+    return JSON.stringify([finished, votes]);
+  },
+
+  broadcastVotingFinished(state) {
+    const signature = Effects.votingFinishedSignature(state);
+    if (signature === state.lastFinishedSnapshotSignature) {
+      return Promise.resolve();
     }
+
+    state.lastFinishedSnapshotSignature = signature;
+    return Bridge.broadcastToAllPeers(new VotingFinishedMessage({
+      gameId: state.gameId,
+      votes: [...state.votes.entries()],
+      finishedParticipants: [...state.finishedParticipants],
+      ts: Date.now(),
+    }));
+  },
+
+  onVotingFinished(state) {
+    if (state.phase !== "votingFinalizing") return;
+
+    if (!state.finalizationTimerArmed) {
+      state.finalizationTimerArmed = true;
+      Timers.start(
+        `votingFinalization:${state.gameId}`,
+        VOTING_FINALIZATION_GRACE_SECONDS,
+        "votingFinalizationTimeout",
+        state.gameId,
+      );
+    }
+
+    const sendPromise = Effects.broadcastVotingFinished(state);
+    const allFinished = state.participants.every((pk) => state.finishedParticipants.has(pk));
+
+    if (allFinished && !state.finalizationCompleting) {
+      state.finalizationCompleting = true;
+      Timers.cancel(`votingFinalization:${state.gameId}`);
+      Promise.resolve(sendPromise).finally(() => Actions.finalizeVoting());
+    }
+  },
+
+  onVotingFinalized(state, msg) {
+    // Remote timeout-shaped payloads are ignored by the reducer. Only run
+    // completion effects after a local finalisation actually reached Menu.
+    if (state.phase !== "menu") return;
+
+    Timers.cancel(`votingFinalization:${msg.gameId}`);
+    const mine = state.scores.get(state.myPubkeyHex);
+    if (mine) {
+      Bridge.broadcastToAllPeers(new ScoreMessage({ score: mine.score, ts: mine.ts }));
+    }
+    Bridge.broadcastToAllPeers(new GameStatusMessage({ inGame: false, ts: Date.now() }));
   },
 
   onTimeUp(state, msg, meta) {
@@ -2084,17 +2313,55 @@ const Actions = {
   },
 
   castVote(questionIndex, answerOwnerPubkeyHex, value) {
+    if (GameState.phase !== "voting") return;
     if (!hasSubmittedAnswer(GameState, questionIndex, answerOwnerPubkeyHex)) return;
 
-    const msg = new VoteMessage({ gameId: GameState.gameId, questionIndex, answerOwnerPubkeyHex, value, ts: Date.now() });
+    const msg = new VoteMessage({
+      gameId: GameState.gameId,
+      questionIndex,
+      answerOwnerPubkeyHex,
+      voterPubkeyHex: GameState.myPubkeyHex,
+      value,
+      ts: Date.now(),
+    });
     dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
     Bridge.broadcastToAllPeers(msg);
   },
 
   next() {
-    const msg = new NextMessage({ gameId: GameState.gameId, questionIndex: GameState.questionIndex + 1, ts: Date.now() });
+    if (GameState.phase !== "voting") return;
+
+    const closedQuestionIndex = GameState.questionIndex;
+    const isFinalQuestion = closedQuestionIndex >= GameState.config.questions.length - 1;
+
+    if (isFinalQuestion) {
+      const msg = new VotingFinishedMessage({
+        gameId: GameState.gameId,
+        votes: [...GameState.votes.entries()],
+        finishedParticipants: [GameState.myPubkeyHex],
+        ts: Date.now(),
+      });
+      dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+      return;
+    }
+
+    const msg = new VotingRoundClosedMessage({
+      gameId: GameState.gameId,
+      questionIndex: closedQuestionIndex,
+      nextQuestionIndex: closedQuestionIndex + 1,
+      votes: voteSnapshotForQuestion(GameState, closedQuestionIndex),
+      ts: Date.now(),
+    });
     dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
-    Bridge.broadcastToAllPeers(msg);
+  },
+
+  finalizeVoting() {
+    if (GameState.phase !== "votingFinalizing") return;
+    const msg = new VotingFinalizationTimeoutMessage({
+      gameId: GameState.gameId,
+      ts: Date.now(),
+    });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
   },
 
   // --- not game messages, but still go through Actions for consistency ---
@@ -2129,7 +2396,10 @@ const Actions = {
 const Render = {
   draw(state) {
     for (const [name, el] of Object.entries(El.screens)) {
-      el.classList.toggle("active", state.phase === name);
+      const active = name === "voting"
+        ? state.phase === "voting" || state.phase === "votingFinalizing"
+        : state.phase === name;
+      el.classList.toggle("active", active);
     }
     // Leaving Answering (voting, or back to menu) stops the cosmetic tick
     // and forces a fresh skeleton+tick build if we ever re-enter it later.
@@ -2140,7 +2410,7 @@ const Render = {
     }
     if (state.phase === "menu") Render.menu(state);
     if (state.phase === "answering") Render.answering(state);
-    if (state.phase === "voting") Render.voting(state);
+    if (state.phase === "voting" || state.phase === "votingFinalizing") Render.voting(state);
     Render.overlay(); // independent of phase — keeps it live if open during a peer change
   },
 
@@ -2314,9 +2584,22 @@ const Render = {
   },
 
   voting(state) {
-    El.voting.bigQNum.textContent = String(state.questionIndex + 1);
-    El.voting.smallQNum.textContent = `of ${state.config.questions.length}`;
-    El.voting.qContent.textContent = state.config.questions[state.questionIndex];
+    const finalizing = state.phase === "votingFinalizing";
+    if (finalizing) {
+      El.voting.bigQNum.textContent = "✓";
+      El.voting.smallQNum.textContent = "finalising";
+      El.voting.qContent.textContent =
+        `Merging final votes · ${state.finishedParticipants.size}/${state.participants.length} finished`;
+      El.voting.nextBtn.textContent = "Waiting…";
+      El.voting.nextBtn.disabled = true;
+    } else {
+      El.voting.bigQNum.textContent = String(state.questionIndex + 1);
+      El.voting.smallQNum.textContent = `of ${state.config.questions.length}`;
+      El.voting.qContent.textContent = state.config.questions[state.questionIndex];
+      El.voting.nextBtn.textContent =
+        state.questionIndex >= state.config.questions.length - 1 ? "Finish" : "Next";
+      El.voting.nextBtn.disabled = false;
+    }
 
     // Row order is genuinely arbitrary — state.participants' own order is
     // fine, and nothing requires it to match what any other peer sees.
@@ -2360,11 +2643,12 @@ const Render = {
         } else {
           const track = document.createElement("div");
           track.className = "vote-track";
-          const myVote = state.votes.get(`${state.questionIndex}:${ownerPubkeyHex}:${state.myPubkeyHex}`)?.value;
+          const myVote = state.votes.get(voteKey(state.questionIndex, ownerPubkeyHex, state.myPubkeyHex))?.value;
           for (const value of [-2, -1, 0, 1, 2]) {
             const btn = document.createElement("button");
             btn.className = "vote-btn";
             btn.dataset.value = String(value);
+            btn.disabled = finalizing;
             btn.textContent = (value > 0 ? "+" : "") + String(value); // "-0" for 0, matching the mockup
             if (value === 0) btn.textContent = "-0";
             if (myVote === value) {
