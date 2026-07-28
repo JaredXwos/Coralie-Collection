@@ -27,7 +27,7 @@
   {
     "id": "cve-tracker",
     "title": "CVE Intelligence Feed",
-    "description": "Track recent CVEs from VulnCheck NVD++ and save bookmarks using Coralie storage.",
+    "description": "Track recent CVEs from the NIST NVD API and save bookmarks using Coralie storage.",
     "file": "cve-tracker.html",
     "build": "cve-tracker-coralie-v2",
     "capabilities": [
