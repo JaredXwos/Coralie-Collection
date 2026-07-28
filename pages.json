@@ -23,5 +23,17 @@
       "storage"
     ],
     "category": "Utility"
+  },
+  {
+    "id": "cve-tracker",
+    "title": "CVE Intelligence Feed",
+    "description": "Track recent CVEs from VulnCheck NVD++ and save bookmarks using Coralie storage.",
+    "file": "cve-tracker.html",
+    "build": "cve-tracker-coralie-v2",
+    "capabilities": [
+      "storage",
+      "http"
+    ],
+    "category": "Utility"
   }
 ]
