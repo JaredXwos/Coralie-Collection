@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="coralie-page-build" content="rbw-coralie-v2">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Really Boring Website</title>
+<!-- Coralie Android capabilities: mesh, storage, http -->
+<!-- Coralie host bootstrap: ./Coralie/v2/host.js -->
+<style>
+  /* ============================================================
+     SHARED — tokens, resets, and base elements used by all three
+     screens + the overlay.
+     ============================================================ */
+  :root {
+    --bg: #0b1620;
+    --panel: #0f1e28;
+    --panel-2: #14293489;
+    --input-bg: #0d1a23;
+    --border: #22323f;
+    --text: #dce8ed;
+    --text-muted: #7c93a0;
+    --text-faint: #4d616c;
+    --accent: #4fd1b5;
+    --accent-dim: #2c4d47;
+    --warn: #e2725b;
+    --warn-dim: #4a2e28;
+    --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  body { position: relative; }
+
+  /* Startup diagnostics are visible before any application screen is rendered.
+     This prevents initialization failures from appearing as a blank page. */
+  #boot-diagnostics {
+    position: fixed; inset: 0; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: var(--bg); color: var(--text);
+  }
+  #boot-diagnostics.hidden { display: none; }
+  #boot-diagnostics.error { background: #180f12; }
+  .boot-card {
+    width: min(680px, 100%); max-height: 90dvh; overflow: auto;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px;
+  }
+  #boot-diagnostics.error .boot-card { border-color: var(--warn); }
+  .boot-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .boot-stage { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+  #boot-diagnostics.error .boot-stage { color: var(--warn); }
+  .boot-detail {
+    display: none; margin: 14px 0 0; padding: 10px;
+    white-space: pre-wrap; word-break: break-word;
+    font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
+    color: var(--text-muted); background: var(--input-bg);
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  #boot-diagnostics.error .boot-detail { display: block; }
+  .boot-actions { display: none; gap: 8px; margin-top: 14px; }
+  #boot-diagnostics.error .boot-actions { display: flex; }
+  .boot-actions button { flex: 0 0 auto; }
+
+  .screen {
+    display: none;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+    position: relative; /* so children like #lock-overlay can inset:0 to THIS screen, not the whole body */
+  }
+  .screen.active { display: flex; }
+
+  .eyebrow {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 600;
+  }
+
+  .pulse-dot {
+    position: relative; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent); flex: 0 0 auto;
+  }
+  .pulse-dot::after {
+    content: ""; position: absolute; inset: -5px; border-radius: 50%;
+    border: 1px solid var(--accent); opacity: 0.6;
+    animation: pulse 2.2s ease-out infinite;
+  }
+  @keyframes pulse { 0% { transform: scale(0.4); opacity: 0.6; } 100% { transform: scale(1.8); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .pulse-dot::after { animation: none; opacity: 0; } }
+
+  button {
+    font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text);
+    padding: 10px 12px; cursor: pointer; flex: 1 1 0;
+  }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  button.warn { background: var(--warn-dim); border-color: var(--warn); color: var(--warn); }
+  button.ghost { background: transparent; color: var(--text-muted); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.small { font-size: 11px; padding: 5px 9px; border-radius: 6px; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .row { display: flex; gap: 8px; align-items: center; }
+  input[type="text"] {
+    font-family: var(--font-mono); font-size: 13px;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); padding: 9px 10px;
+    flex: 1 1 auto; min-width: 0;
+  }
+  input[type="text"].sans { font-family: var(--font-sans); }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input::placeholder { color: var(--text-faint); }
+  .hint { font-size: 11px; color: var(--text-faint); margin-top: 6px; }
+
+  /* ============================================================
+     MENU screen
+     ============================================================ */
+  #home-topbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  #home-topbar .title { display: flex; flex-direction: column; gap: 3px; }
+  #home-topbar .title .name { font-size: 15px; font-weight: 700; }
+
+  .conn-indicator { display: flex; align-items: center; gap: 8px; }
+  .peer-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 10px 4px 8px;
+    cursor: pointer;
+  }
+  #gear-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px;
+  }
+  #gear-btn:active { transform: translateY(1px); }
+
+  #home-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 16px 20px; }
+
+  section.block { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  section.block:last-child { border-bottom: none; }
+
+  h2 {
+    margin: 0 0 10px 0; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .badge {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 8px; text-transform: none; letter-spacing: 0;
+    font-weight: 600;
+  }
+
+  .cfg-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 2px; border-bottom: 1px solid var(--border);
+  }
+  .cfg-row:last-child { border-bottom: none; }
+  .cfg-label { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .cfg-label i { width: 16px; text-align: center; color: var(--text-faint); font-size: 13px; }
+  .cfg-value {
+    font-family: var(--font-mono); font-size: 13px; color: var(--accent);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .cfg-value .chev { color: var(--text-faint); font-size: 11px; }
+  .cfg-row { cursor: pointer; }
+  .cfg-row:active { transform: translateY(1px); }
+
+  .cfg-options {
+    display: none; flex-wrap: wrap; gap: 6px;
+    padding: 2px 2px 14px; border-bottom: 1px solid var(--border);
+  }
+  .cfg-options.open { display: flex; }
+  .cfg-option {
+    flex: 0 0 auto; /* opt out of the shared button's flex:1 1 0 — these wrap, not stretch */
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--input-bg); color: var(--text-muted);
+  }
+  .cfg-option.selected { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  .cfg-slider-row { cursor: default; gap: 12px; }
+  .cfg-slider-row .cfg-label { flex: 0 0 auto; white-space: nowrap; }
+  .cfg-slider-track-wrap {
+    flex: 1 1 auto; position: relative; height: 24px;
+    display: flex; align-items: center;
+    touch-action: none; /* we handle the drag ourselves — don't let the page try to scroll under it */
+    cursor: grab;
+  }
+  .cfg-slider-track {
+    position: relative; width: 100%; height: 4px; border-radius: 2px;
+    background: var(--border);
+  }
+  .cfg-slider-fill {
+    position: absolute; left: 0; top: 0; height: 100%;
+    background: var(--accent); border-radius: 2px;
+  }
+  .cfg-slider-thumb {
+    position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--accent);
+    transform: translate(-50%, -50%);
+  }
+  .cfg-slider-value {
+    flex: 0 0 auto; min-width: 42px; text-align: right;
+    font-family: var(--font-mono); font-size: 13px; color: var(--accent);
+  }
+
+  #player-list { display: flex; flex-direction: column; gap: 6px; }
+  .player-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 10px;
+  }
+  .player-row .pulse-dot { width: 6px; height: 6px; }
+  .player-row.you-row { cursor: pointer; }
+  .player-row.you-row:active { transform: translateY(1px); }
+
+  .p-name { font-size: 14px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-name.you { color: var(--accent); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .p-name.you .edit-hint { color: var(--text-faint); font-size: 11px; font-weight: 400; }
+  .p-score-delta { display: flex; align-items: baseline; gap: 5px; flex: 0 0 auto; }
+  .p-score { font-family: var(--font-mono); font-size: 15px; font-weight: 700; }
+  .p-score.highest { color: var(--accent); }
+  .p-delta { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+
+  /* ============================================================
+     ANSWERING screen
+     ============================================================ */
+  #answering-topbar { flex: 0 0 auto; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+  .letter-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  #big-letter {
+    font-family: var(--font-mono); font-size: 40px; font-weight: 700;
+    color: var(--accent); line-height: 1; flex: 0 0 auto; min-width: 44px;
+  }
+  .timer-block { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #timer {
+    font-family: var(--font-mono); font-size: 20px; font-weight: 700;
+    color: var(--text); display: flex; align-items: center; gap: 8px;
+    transition: color 150ms ease;
+  }
+  #timer .clock-icon { font-size: 15px; color: var(--text-faint); }
+  @keyframes flash-color { 0%, 100% { color: var(--warn); } 50% { color: var(--text); } }
+  /* Real class Render's tickAnsweringTimer() actually toggles, not a demo flag */
+  #timer.low-time, #timer.low-time .clock-icon { animation: flash-color 1s ease-in-out infinite; }
+  #timer.low-time .clock-icon { color: inherit; }
+
+  /* Restart sits alone in a column flex container (.timer-block), so it
+     must NOT inherit the shared button's flex:1 1 0 (that's for row-siblings
+     like Home's Start/Reset) or it'll stretch to fill vertical space. */
+  #restart-btn { flex: 0 0 auto; }
+
+  .instructions { font-size: 13px; color: var(--text-muted); margin-top: 10px; line-height: 1.4; }
+
+  #questions-scroll {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding: 6px 16px 24px;
+    transition: opacity 150ms ease;
+  }
+  /* Real class Render.answering will toggle on the screen wrapper once a
+     lock state exists, not a demo flag on <body> */
+  [data-screen="answering"].locked #questions-scroll { opacity: 0.45; pointer-events: none; }
+
+  .question { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .question:last-child { border-bottom: none; }
+  .q-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .q-num { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); flex: 0 0 auto; }
+  .q-content { font-size: 14px; color: var(--text); line-height: 1.35; }
+
+  .q-input-wrap { position: relative; }
+  .q-input {
+    font-family: var(--font-sans); font-size: 15px; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; min-height: 20px;
+    outline: none;
+  }
+  .q-input:empty::before { content: attr(data-placeholder); color: var(--text-faint); }
+  .q-input.valid { color: var(--accent); border-color: var(--accent-dim); }
+  .q-input.invalid { color: var(--warn); border-color: var(--warn-dim); }
+
+  .q-input-border {
+    position: absolute; left: 12px; right: 12px; bottom: -1px;
+    height: 2px; width: 0%; background: var(--accent);
+    transition: width 150ms ease;
+  }
+  .q-input.invalid ~ .q-input-border { background: var(--warn); }
+  .q-input:focus ~ .q-input-border { width: calc(100% - 24px); }
+
+  #lock-overlay {
+    position: absolute; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px;
+    opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+    z-index: 10;
+  }
+  [data-screen="answering"].locked #lock-overlay { opacity: 1; pointer-events: auto; }
+
+  .lock-dot { position: relative; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); }
+  /* Renamed from the original mockup's "pulse" — collided with the shared
+     .pulse-dot keyframe above (same name, different values; last one
+     defined would've silently overridden the other everywhere). */
+  .lock-dot::after {
+    content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    border: 1px solid var(--accent); opacity: 0.6;
+    animation: lock-pulse 1.6s ease-out infinite;
+  }
+  @keyframes lock-pulse { 0% { transform: scale(0.4); opacity: 0.6; } 100% { transform: scale(2.4); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .lock-dot::after { animation: none; opacity: 0; } }
+
+  .lock-title { font-size: 17px; font-weight: 700; }
+  .lock-sub { font-size: 13px; color: var(--text-muted); text-align: center; }
+  #lock-players { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 320px; margin-top: 4px; }
+  .lock-player-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; font-size: 13px;
+  }
+  .lock-player-row .pulse-dot { width: 6px; height: 6px; }
+  .lock-player-row.pending .pulse-dot { background: var(--text-faint); }
+  .lock-player-row .name { flex: 1 1 auto; }
+  .lock-player-row .status { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+  .lock-player-row.pending .status { color: var(--text-muted); }
+
+  /* ============================================================
+     VOTING screen
+     ============================================================ */
+  #voting-topbar { flex: 0 0 auto; padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+  .q-row { display: flex; align-items: center; gap: 12px; }
+  .q-meta { flex: 0 0 auto; text-align: center; }
+  #big-q-num { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; }
+  #small-q-num { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  #q-content { flex: 1 1 auto; font-size: 15px; font-weight: 600; line-height: 1.3; }
+  /* Alone among non-button flex siblings in .q-row — same reasoning as
+     #restart-btn above, not a Home-style equal-width row. */
+  #next-btn { flex: 0 0 auto; }
+
+  #answers-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 16px 24px; }
+
+  .answer { position: relative; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .answer:last-child { border-bottom: none; }
+  .a-content { font-size: 14px; line-height: 1.4; margin-bottom: 9px; }
+  .a-name { color: var(--text-muted); font-weight: 600; margin-right: 3px; }
+  .a-right { display: flex; flex-direction: column; gap: 7px; }
+
+  .vote-track { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .vote-btn {
+    flex: 1 1 0; border: none; border-right: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text-muted);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    padding: 8px 0; border-radius: 0;
+  }
+  .vote-btn:last-child { border-right: none; }
+  /* 0 selected gets neither .correct nor .negative — stays visually
+     identical to the plain .selected neutral state ("transparent"). */
+  .vote-btn.selected { background: var(--panel-2); color: var(--text); }
+  .vote-btn.selected.correct { background: var(--accent-dim); color: var(--accent); }
+  .vote-btn.selected.negative { background: var(--warn-dim); color: var(--warn); }
+
+  .your-answer-tag,
+  .no-answer-tag {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+    border-radius: 8px; padding: 8px 0; text-align: center;
+  }
+  .your-answer-tag {
+    color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-dim);
+  }
+  .no-answer-tag {
+    color: var(--text-muted); background: var(--panel-2); border: 1px solid var(--border);
+  }
+
+  .a-stats { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+  .a-points { font-weight: 700; color: var(--text); }
+  .a-points.correct { color: var(--accent); }
+  .a-sep { color: var(--text-faint); }
+  .a-votes.correct { color: var(--accent); }
+
+  /* ============================================================
+     PEERING OVERLAY — reachable from Menu, not itself a .screen
+     (it's UiState-driven, layered on top rather than swapped to)
+     ============================================================ */
+  #overlay-backdrop {
+    position: absolute; inset: 0; background: rgba(4, 9, 13, 0.55);
+    opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+    z-index: 10;
+  }
+  #overlay-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  #overlay {
+    position: absolute; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column;
+    transform: translateY(100%); transition: transform 200ms ease;
+    z-index: 11;
+  }
+  #overlay.open { transform: translateY(0); }
+
+  #overlay-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  #overlay-back {
+    width: 30px; height: 30px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #overlay-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 16px 20px; }
+
+  #my-pubkey {
+    font-family: var(--font-mono); font-size: 12px; color: var(--text);
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; flex: 1 1 auto;
+    overflow-x: auto; white-space: nowrap;
+  }
+
+  #mesh-peer-list { display: flex; flex-direction: column; gap: 6px; }
+  .mesh-peer-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px;
+  }
+  .mesh-peer-row .pulse-dot { width: 6px; height: 6px; }
+  .mesh-peer-name { font-size: 13px; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mesh-peer-name.unknown { color: var(--text-muted); font-family: var(--font-mono); }
+  .mesh-note {
+    font-size: 12px; color: var(--text-faint); line-height: 1.5;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px;
+  }
+</style>
+</head>
+<body>
+
+  <div id="boot-diagnostics" role="status" aria-live="polite">
+    <div class="boot-card">
+      <div class="boot-title">Starting Really Boring Website</div>
+      <div class="boot-stage" id="boot-stage">Preparing page…</div>
+      <pre class="boot-detail" id="boot-detail"></pre>
+      <div class="boot-actions">
+        <button id="boot-copy-btn">Copy details</button>
+        <button class="primary" id="boot-reload-btn">Reload</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var overlay = document.getElementById("boot-diagnostics");
+    var stageElement = document.getElementById("boot-stage");
+    var detailElement = document.getElementById("boot-detail");
+    var history = [];
+
+    function describe(value) {
+      if (value instanceof Error) {
+        return value.stack || (value.name + ": " + value.message);
+      }
+      if (value && typeof value === "object") {
+        try { return JSON.stringify(value, null, 2); } catch (_) {}
+      }
+      return String(value == null ? "Unknown error" : value);
+    }
+
+    function addHistory(message) {
+      var time = new Date().toLocaleTimeString([], { hour12: false });
+      history.push("[" + time + "] " + message);
+      if (history.length > 50) history.shift();
+    }
+
+    function stage(message) {
+      addHistory(message);
+      if (!overlay || overlay.classList.contains("error")) return;
+      stageElement.textContent = message;
+    }
+
+    function fail(error, context) {
+      var heading = context || "Initialization failed";
+      var details = describe(error);
+      addHistory(heading + ": " + details);
+      if (!overlay) return;
+      overlay.classList.remove("hidden");
+      overlay.classList.add("error");
+      stageElement.textContent = heading;
+      detailElement.textContent = history.join("\n") + "\n\n" + details;
+    }
+
+    function ready() {
+      addHistory("Application ready");
+      if (overlay) overlay.classList.add("hidden");
+    }
+
+    window.__CoralieBoot = Object.freeze({ stage: stage, error: fail, ready: ready });
+
+    window.addEventListener("error", function (event) {
+      fail(event.error || event.message, "JavaScript error");
+    });
+
+    window.addEventListener("unhandledrejection", function (event) {
+      fail(event.reason, "Unhandled promise rejection");
+    });
+
+    document.getElementById("boot-reload-btn").addEventListener("click", function () {
+      location.reload();
+    });
+
+    document.getElementById("boot-copy-btn").addEventListener("click", async function () {
+      var details = detailElement.textContent;
+      try {
+        await navigator.clipboard.writeText(details);
+        this.textContent = "Copied";
+      } catch (_) {
+        var area = document.createElement("textarea");
+        area.value = details;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+        this.textContent = "Copied";
+      }
+    });
+
+    stage("Loading Coralie library…");
+  })();
+  </script>
+
+  <!-- ============ MENU ============ -->
+  <div class="screen" data-screen="menu">
+    <div id="home-topbar">
+      <div class="title">
+        <div class="eyebrow">Coralie · Word Games</div>
+        <div class="name">Really Boring Website</div>
+      </div>
+      <div class="conn-indicator">
+        <div class="peer-pill" id="gear-pill-target">
+          <span class="pulse-dot"></span>
+          <span id="peer-pill-count">4 connected</span>
+        </div>
+        <div id="gear-btn" aria-label="Connection settings">⚙</div>
+      </div>
+    </div>
+
+    <div id="home-scroll">
+      <section class="block">
+        <h2>Configuration</h2>
+        <div class="cfg-row" id="cfg-row-letter">
+          <div class="cfg-label"><i>Aa</i>Letter</div>
+          <div class="cfg-value"><span id="cfg-letter">All</span> <span class="chev" id="cfg-chev-letter">▸</span></div>
+        </div>
+        <div class="cfg-options" id="cfg-options-letter"></div>
+        <div class="cfg-row cfg-slider-row">
+          <div class="cfg-label"><i>⏱</i>Duration</div>
+          <div class="cfg-slider-track-wrap" id="cfg-slider-duration">
+            <div class="cfg-slider-track">
+              <div class="cfg-slider-fill" id="cfg-slider-fill-duration"></div>
+              <div class="cfg-slider-thumb" id="cfg-slider-thumb-duration"></div>
+            </div>
+          </div>
+          <div class="cfg-slider-value" id="cfg-duration">120 s</div>
+        </div>
+        <div class="cfg-row cfg-slider-row">
+          <div class="cfg-label"><i>?</i>Number of questions</div>
+          <div class="cfg-slider-track-wrap" id="cfg-slider-questionCount">
+            <div class="cfg-slider-track">
+              <div class="cfg-slider-fill" id="cfg-slider-fill-questionCount"></div>
+              <div class="cfg-slider-thumb" id="cfg-slider-thumb-questionCount"></div>
+            </div>
+          </div>
+          <div class="cfg-slider-value" id="cfg-questions">12</div>
+        </div>
+        <div class="cfg-row" id="cfg-row-qType">
+          <div class="cfg-label"><i>#</i>Type</div>
+          <div class="cfg-value"><span id="cfg-type">1</span> <span class="chev" id="cfg-chev-qType">▸</span></div>
+        </div>
+        <div class="cfg-options" id="cfg-options-qType"></div>
+      </section>
+
+      <section class="block">
+        <h2>Players <span class="badge" id="player-count-badge">4</span></h2>
+        <div id="player-list">
+          <div class="player-row you-row" id="you-row" data-self="true">
+            <span class="pulse-dot"></span>
+            <div class="p-name you">You <span class="edit-hint">tap to rename ✎</span></div>
+            <div class="p-score-delta"><span class="p-score highest">12</span><span class="p-delta">(+3)</span></div>
+          </div>
+          <div class="player-row">
+            <span class="pulse-dot"></span>
+            <div class="p-name">Shishamo</div>
+            <div class="p-score-delta"><span class="p-score">9</span><span class="p-delta">(+1)</span></div>
+          </div>
+          <div class="player-row">
+            <span class="pulse-dot"></span>
+            <div class="p-name">Kappa</div>
+            <div class="p-score-delta"><span class="p-score">7</span><span class="p-delta">(+0)</span></div>
+          </div>
+          <div class="player-row">
+            <span class="pulse-dot"></span>
+            <div class="p-name">Guest_ab12f9</div>
+            <div class="p-score-delta"><span class="p-score">0</span><span class="p-delta"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="btn-row">
+          <button class="ghost" id="bank-btn">View Question Bank</button>
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="primary" id="start-btn">Start Game</button>
+          <button class="warn" id="reset-btn">Reset Game</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ ANSWERING ============ -->
+  <div class="screen" data-screen="answering">
+    <div id="answering-topbar">
+      <div class="letter-row">
+        <div id="big-letter">I</div>
+        <div class="timer-block">
+          <div id="timer"><span class="clock-icon">⏱</span> 00:47</div>
+          <button class="ghost small" id="restart-btn">Restart</button>
+        </div>
+      </div>
+      <div class="instructions" id="instructions">Answer each category with a word or phrase starting with this letter.</div>
+    </div>
+
+    <div id="questions-scroll">
+      <div class="question">
+        <div class="q-head"><span class="q-num">01</span><span class="q-content">Programming languages, libraries, or frameworks</span></div>
+        <div class="q-input-wrap">
+          <div class="q-input valid" contenteditable="true" data-placeholder="Type an answer…">Idris</div>
+          <div class="q-input-border"></div>
+        </div>
+      </div>
+      <div class="question">
+        <div class="q-head"><span class="q-num">02</span><span class="q-content">Things you'd find in a kitchen</span></div>
+        <div class="q-input-wrap">
+          <div class="q-input invalid" contenteditable="true" data-placeholder="Type an answer…">Spatula</div>
+          <div class="q-input-border"></div>
+        </div>
+      </div>
+      <div class="question">
+        <div class="q-head"><span class="q-num">03</span><span class="q-content">Animals</span></div>
+        <div class="q-input-wrap">
+          <div class="q-input" contenteditable="true" data-placeholder="Type an answer…">Iguana</div>
+          <div class="q-input-border"></div>
+        </div>
+      </div>
+      <div class="question">
+        <div class="q-head"><span class="q-num">04</span><span class="q-content">Countries or cities</span></div>
+        <div class="q-input-wrap">
+          <div class="q-input" contenteditable="true" data-placeholder="Type an answer…"></div>
+          <div class="q-input-border"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="lock-overlay">
+      <div class="lock-dot"></div>
+      <div class="lock-title">Time's up</div>
+      <div class="lock-sub">Waiting for other players to finish or lock their answers…</div>
+      <div id="lock-players">
+        <div class="lock-player-row"><span class="pulse-dot"></span><span class="name">Shishamo</span><span class="status">locked</span></div>
+        <div class="lock-player-row pending"><span class="pulse-dot"></span><span class="name">Kappa</span><span class="status">still going</span></div>
+        <div class="lock-player-row pending"><span class="pulse-dot"></span><span class="name">Guest_ab12f9</span><span class="status">still going</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ VOTING ============ -->
+  <div class="screen" data-screen="voting">
+    <div id="voting-topbar">
+      <div class="q-row">
+        <div class="q-meta">
+          <div id="big-q-num">3</div>
+          <div id="small-q-num">of 12</div>
+        </div>
+        <div id="q-content">Animals</div>
+        <button class="primary" id="next-btn">Next</button>
+      </div>
+    </div>
+
+    <div id="answers-scroll">
+      <div class="answer">
+        <div class="a-content"><span class="a-name">Shishamo:</span>Iguana</div>
+        <div class="a-right">
+          <div class="vote-track">
+            <button class="vote-btn">-2</button>
+            <button class="vote-btn">-1</button>
+            <button class="vote-btn">-0</button>
+            <button class="vote-btn selected correct">+1</button>
+            <button class="vote-btn correct">+2</button>
+          </div>
+          <div class="a-stats"><span class="a-points correct">+2</span><span class="a-sep">·</span><span class="a-votes correct">2/2 voted</span></div>
+        </div>
+      </div>
+
+      <div class="answer">
+        <div class="a-content">Idris</div>
+        <div class="a-right">
+          <div class="your-answer-tag">Your answer</div>
+          <div class="a-stats"><span class="a-points">+0</span><span class="a-sep">·</span><span class="a-votes">1/2 voted</span></div>
+        </div>
+      </div>
+
+      <div class="answer">
+        <div class="a-content"><span class="a-name">Kappa:</span>Impala</div>
+        <div class="a-right">
+          <div class="vote-track">
+            <button class="vote-btn">-2</button>
+            <button class="vote-btn">-1</button>
+            <button class="vote-btn selected">-0</button>
+            <button class="vote-btn correct">+1</button>
+            <button class="vote-btn correct">+2</button>
+          </div>
+          <div class="a-stats"><span class="a-points">-0</span><span class="a-sep">·</span><span class="a-votes">0/2 voted</span></div>
+        </div>
+      </div>
+
+      <div class="answer">
+        <div class="a-content"><span class="a-name">Guest_ab12f9:</span>Ibex</div>
+        <div class="a-right">
+          <div class="vote-track">
+            <button class="vote-btn">-2</button>
+            <button class="vote-btn">-1</button>
+            <button class="vote-btn">-0</button>
+            <button class="vote-btn correct">+1</button>
+            <button class="vote-btn selected correct">+2</button>
+          </div>
+          <div class="a-stats"><span class="a-points correct">+4</span><span class="a-sep">·</span><span class="a-votes correct">2/2 voted</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PEERING OVERLAY ============ -->
+  <div id="overlay-backdrop"></div>
+  <div id="overlay">
+    <div id="overlay-topbar">
+      <div id="overlay-back">←</div>
+      <div class="title">
+        <div class="eyebrow">Connection</div>
+        <div class="name" style="font-size:14px;">Node &amp; mesh peers</div>
+      </div>
+    </div>
+    <div id="overlay-scroll">
+      <section class="block">
+        <h2>My node</h2>
+        <div class="row">
+          <span class="pulse-dot"></span>
+          <div id="my-pubkey">7a3f9c2e51...0d8e21b4f6a9</div>
+          <button style="flex:0 0 auto;" id="copy-pubkey-btn">Copy</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Username</h2>
+        <div class="row">
+          <input type="text" class="sans" id="username-input" placeholder="Your name" />
+          <button class="primary" style="flex:0 0 auto;" id="save-username-btn">Save</button>
+        </div>
+        <div class="hint">Stored on this device and announced to peers you connect to.</div>
+      </section>
+
+      <section class="block">
+        <h2>Add peer</h2>
+        <div class="row">
+          <input type="text" placeholder="Paste a public key" id="peer-input" />
+          <button class="primary" style="flex:0 0 auto;" id="add-peer-btn">Add</button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>Mesh peers <span class="badge" id="mesh-peer-count">3</span></h2>
+        <div id="mesh-peer-list">
+          <div class="mesh-peer-row"><span class="pulse-dot"></span><div class="mesh-peer-name">Shishamo</div></div>
+          <div class="mesh-peer-row"><span class="pulse-dot"></span><div class="mesh-peer-name unknown">91bd2a…f04c (no username yet)</div></div>
+          <div class="mesh-peer-row"><span class="pulse-dot"></span><div class="mesh-peer-name">Kappa</div></div>
+        </div>
+        <div class="hint mesh-note" style="margin-top:10px;">
+          This is every peer your node is currently connected to. The Players list on Home shows everyone on the menu screen right now — since a game hasn't started, presence is simple: you're either here or you're not.
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script src="./Coralie/v2/host.js"></script>
+
+<script>
+// ============================================================================
+// GAME SCAFFOLD — single-file P2P game client (menu / answering / voting).
+//
+// Sections, top to bottom:
+//   MESSAGES              — typed wire envelopes: validate, appliesTo, en/decode
+//   PORTABLE HOST         — window.Coralie mesh facade + portable storage
+//   SHARED STATE           — GameState, dispatch-driven, mirrored across peers
+//   LOCAL UI STATE         — UiState, never dispatched or broadcast
+//   STATIC DOM REFS        — El, cached once at init
+//   TIMERS                 — plain setTimeout/clearTimeout, not the bridge's
+//   REDUCE                 — one pure function per message type, mutates GameState
+//   EFFECTS                — broadcasts/timers caused by a state transition
+//   QUESTION BANK           — fetches/picks real question text (the starter's job only)
+//   VALIDITY                — regex-based answer checking, shared by Answering + Voting
+//   DISPATCH               — the one funnel: guard -> reduce -> effects -> render
+//   ACTIONS                — the only things DOM listeners call directly
+//   RENDER                 — the only way state reaches the screen
+//   DELEGATED LISTENERS    — one listener per dynamic container, read via dataset
+//   STATIC LISTENERS       — bound once, to elements that never get rebuilt
+//   CORALIE HOST EVENTS    — the other entry point into dispatch
+//   INIT / BOOTSTRAP       — the only code that actually executes
+//
+// ============================================================================
+
+"use strict";
+
+// ============================================================
+// MESSAGES — typed envelopes for everything sent over
+// sendMessage/"message". No business logic beyond:
+//   - validate(obj)   : is this wire object well-formed?
+//   - appliesTo(state): should this be handed to Reduce at all,
+//                       given the current GameState? (the guard)
+//   - toWire/fromWire : plain-object <-> class instance
+//
+// Reduce/Effects only ever see messages that already passed
+// appliesTo() — they don't re-check gameId themselves.
+// ============================================================
+
+class MessageBase {
+  static type = null; // override in subclass
+
+  constructor(fields) {
+    Object.assign(this, fields);
+    this.type = this.constructor.type;
+  }
+
+  // Default guard: game-scoped messages must match the game you're
+  // currently in. Non-game-scoped types (username, gameStatus, reset)
+  // override this to `return true` unconditionally.
+  static appliesTo(msg, state) {
+    return state.gameId !== null && msg.gameId === state.gameId;
+  }
+
+  static validate(obj) {
+    if (!obj || typeof obj !== "object") throw new Error("message not an object");
+    if (obj.type !== this.type) throw new Error(`expected type "${this.type}"`);
+    if (typeof obj.ts !== "number") throw new Error("missing/invalid ts");
+  }
+
+  toWire() {
+    // All fields here are primitives/plain arrays, so a shallow copy
+    // (minus any accidental class methods) is a safe wire format.
+    return { ...this };
+  }
+
+  static fromWire(obj) {
+    this.validate(obj);
+    return new this(obj);
+  }
+}
+
+// ---- NOT GAME-SCOPED: ALWAYS APPLIED REGARDLESS OF CURRENT GAME ----------
+
+class UsernameMessage extends MessageBase {
+  static type = "username";
+  // name: display name being announced
+  constructor({ name, ts }) {
+    super({ name, ts });
+  }
+  static appliesTo() { return true; }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.name !== "string" || !obj.name.trim()) {
+      throw new Error("username: bad name");
+    }
+  }
+}
+
+class GameStatusMessage extends MessageBase {
+  static type = "gameStatus";
+  // inGame: whether the sender is currently in a game
+  // gameId: which game, if inGame is true; otherwise omitted/null
+  constructor({ inGame, gameId, ts }) {
+    super({ inGame, gameId, ts });
+  }
+  static appliesTo() { return true; }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.inGame !== "boolean") throw new Error("gameStatus: bad inGame");
+    if (obj.inGame && typeof obj.gameId !== "string") {
+      throw new Error("gameStatus: inGame=true requires gameId");
+    }
+  }
+}
+
+class ResetMessage extends MessageBase {
+  static type = "reset";
+  static appliesTo() { return true; } // apply-on-receipt, no coordination needed
+}
+
+class ScoreMessage extends MessageBase {
+  static type = "score";
+  // score: the sender's own NEW total, self-reported — not derived by
+  // anyone else from votes, since different peers could have received a
+  // different subset of votes by the time someone presses Next. Not
+  // gameId-scoped: scores persist across restarts, same reasoning as
+  // username/gameStatus.
+  constructor({ score, ts }) {
+    super({ score, ts });
+  }
+  static appliesTo() { return true; }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.score !== "number") throw new Error("score: bad score");
+  }
+}
+
+// ---- GAME-SCOPED, BUT WITH THE SPECIAL START/RESTART MATCHING RULE -------
+
+class StartMessage extends MessageBase {
+  static type = "start";
+
+  // gameId          : the NEW game's id (starterPubkeyHex + ":" + ts)
+  // previousGameId  : null for a fresh start, or the old gameId for a restart
+  // participants    : pubkeyHex[] snapshot of who's invited
+  // letter/duration/qType : config
+  // questions       : string[] — the ACTUAL selected question text, chosen
+  //                   by the starter (see QuestionBank), not just a count.
+  //                   Every other peer reads this directly; only the
+  //                   starter ever fetches/picks anything.
+  constructor({ gameId, previousGameId, participants, letter, duration, qType, questions, ts }) {
+    super({ gameId, previousGameId, participants, letter, duration, qType, questions, ts });
+  }
+
+  static appliesTo(msg, state) {
+    if (state.gameId === null) return true; // not in a game: any start/restart is fair game
+    return msg.previousGameId === state.gameId; // in a game: only a restart of THIS game applies
+  }
+
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("start: missing gameId");
+    if (obj.previousGameId !== null && typeof obj.previousGameId !== "string") {
+      throw new Error("start: previousGameId must be string or null");
+    }
+    if (!Array.isArray(obj.participants) || !obj.participants.every((p) => typeof p === "string")) {
+      throw new Error("start: bad participants");
+    }
+    if (typeof obj.letter !== "string" || !obj.letter) throw new Error("start: bad letter");
+    if (typeof obj.duration !== "number") throw new Error("start: bad config");
+    if (!Array.isArray(obj.questions) || !obj.questions.every((q) => typeof q === "string")) {
+      throw new Error("start: bad questions");
+    }
+  }
+
+  static freshStart({ starterPubkeyHex, participants, letter, duration, qType, questions }) {
+    return new StartMessage({
+      gameId: `${starterPubkeyHex}:${Date.now()}`,
+      previousGameId: null,
+      participants,
+      letter,
+      duration,
+      qType,
+      questions,
+      ts: Date.now(),
+    });
+  }
+
+  static restartOf(currentGameId, { starterPubkeyHex, participants, letter, duration, qType, questions }) {
+    return new StartMessage({
+      gameId: `${starterPubkeyHex}:${Date.now()}`,
+      previousGameId: currentGameId,
+      participants,
+      letter,
+      duration,
+      qType,
+      questions,
+      ts: Date.now(),
+    });
+  }
+}
+
+// ---- ORDINARY GAME-SCOPED MESSAGES: DEFAULT appliesTo (gameId MATCH) -----
+
+class WordMessage extends MessageBase {
+  static type = "word";
+  // gameId, questionIndex: which slot this answer belongs to
+  // input: the current text for that slot
+  constructor({ gameId, questionIndex, input, ts }) {
+    super({ gameId, questionIndex, input, ts });
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("word: missing gameId");
+    if (typeof obj.questionIndex !== "number") throw new Error("word: bad questionIndex");
+    if (typeof obj.input !== "string") throw new Error("word: bad input");
+  }
+}
+
+class TimeUpMessage extends MessageBase {
+  static type = "timeUp";
+  // gameId: which game the sender just locked
+  constructor({ gameId, ts }) {
+    super({ gameId, ts });
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("timeUp: missing gameId");
+  }
+}
+
+class VotingStageMessage extends MessageBase {
+  static type = "votingStage";
+  // gameId: which game this snapshot belongs to
+  // answers: array of [ "qIndex:pubkeyHex", { input, ts } ] — a Map snapshot,
+  //          serialized as entries() since Maps aren't JSON-native.
+  constructor({ gameId, answers, ts }) {
+    super({ gameId, answers, ts });
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("votingStage: missing gameId");
+    if (!Array.isArray(obj.answers)) throw new Error("votingStage: bad answers snapshot");
+  }
+}
+
+class VoteMessage extends MessageBase {
+  static type = "vote";
+  // gameId, questionIndex, answerOwnerPubkeyHex: which answer is being voted on
+  // value: -2..+2
+  constructor({ gameId, questionIndex, answerOwnerPubkeyHex, value, ts }) {
+    super({ gameId, questionIndex, answerOwnerPubkeyHex, value, ts });
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("vote: missing gameId");
+    if (typeof obj.questionIndex !== "number") throw new Error("vote: bad questionIndex");
+    if (typeof obj.answerOwnerPubkeyHex !== "string") throw new Error("vote: bad answerOwnerPubkeyHex");
+    if (typeof obj.value !== "number" || obj.value < -2 || obj.value > 2) {
+      throw new Error("vote: bad value");
+    }
+  }
+}
+
+class NextMessage extends MessageBase {
+  static type = "next";
+  // gameId: which game
+  // questionIndex: the index being advanced TO
+  constructor({ gameId, questionIndex, ts }) {
+    super({ gameId, questionIndex, ts });
+  }
+  static appliesTo(msg, state) {
+    if (!super.appliesTo(msg, state)) return false; // gameId check
+    return msg.questionIndex > state.questionIndex; // ignore stale/duplicate next calls
+  }
+  static validate(obj) {
+    super.validate(obj);
+    if (typeof obj.gameId !== "string") throw new Error("next: missing gameId");
+    if (typeof obj.questionIndex !== "number") throw new Error("next: bad questionIndex");
+  }
+}
+
+// ---- REGISTRY + DECODE ENTRYPOINT -----------------------------------------
+
+const MessageRegistry = {
+  username: UsernameMessage,
+  gameStatus: GameStatusMessage,
+  reset: ResetMessage,
+  score: ScoreMessage,
+  start: StartMessage,
+  word: WordMessage,
+  timeUp: TimeUpMessage,
+  votingStage: VotingStageMessage,
+  vote: VoteMessage,
+  next: NextMessage,
+};
+
+// Turns a raw parsed-JSON object (from Bridge.decode) into a typed message
+// instance, or returns null if it's malformed / unrecognized. Never throws —
+// a bad payload from a peer should be dropped, not crash the receiver.
+function decodeMessage(raw) {
+  const Cls = raw && MessageRegistry[raw.type];
+  if (!Cls) return null;
+  try {
+    return Cls.fromWire(raw);
+  } catch (e) {
+    return null; // TODO: surface somewhere for debugging, per no-log-panel decision this is silent for end users
+  }
+}
+
+// Convenience used by the dispatcher: does this decoded message apply given
+// the current GameState? (Reduce should never need to re-derive this.)
+function messageApplies(msg, state) {
+  const Cls = MessageRegistry[msg.type];
+  return !!Cls && Cls.appliesTo(msg, state);
+}
+
+// ============================================================
+// CORALIE API V2 HOST + STORAGE
+// ============================================================
+let coralieHost = null;
+const coralieUnsubscribers = [];
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder();
+
+function requireCoralieHost() {
+  const host = window.Coralie;
+  const requiredMethods = [
+    "apiVersion",
+    "hostKind",
+    "getPubkey",
+    "addPeer",
+    "sendMessage",
+    "getPeersJson",
+    "reset",
+    "close",
+    "storageGetItem",
+    "storageSetItem",
+    "storageRemoveItem",
+    "httpRequestJson",
+  ];
+
+  if (!host) {
+    throw new Error("window.Coralie is unavailable");
+  }
+
+  for (const method of requiredMethods) {
+    if (typeof host[method] !== "function") {
+      throw new Error(
+        "window.Coralie is missing API v2 method: " + method
+      );
+    }
+  }
+
+  if (Number(host.apiVersion()) !== 2) {
+    throw new Error(
+      "Unsupported Coralie API version: " + String(host.apiVersion())
+    );
+  }
+
+  return host;
+}
+
+function normalizePeers(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((peer) => {
+      if (typeof peer === "string") {
+        return { pubkeyHex: peer.toLowerCase(), connectedAt: null };
+      }
+      if (!peer || typeof peer.pubkeyHex !== "string") return null;
+      return {
+        pubkeyHex: peer.pubkeyHex.toLowerCase(),
+        connectedAt: peer.connectedAt ?? null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeMessage(value) {
+  return {
+    fromPubkeyHex: String(value?.fromPubkeyHex || "").toLowerCase(),
+    toPubkeyHex: String(value?.toPubkeyHex || "").toLowerCase(),
+    timestamp: Number(value?.timestamp || Date.now()),
+    payload: value?.payload instanceof Uint8Array
+      ? value.payload
+      : Uint8Array.from(value?.payload || []),
+  };
+}
+
+function normalizeTerminalFailure(value) {
+  return {
+    pubkeyHex: String(value?.pubkeyHex || "").toLowerCase(),
+    attemptCount: Number(value?.attemptCount || 0),
+    reason: value?.reason == null ? null : String(value.reason),
+  };
+}
+
+function normalizeHeaders(headers) {
+  const normalized = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    normalized[String(name).toLowerCase()] = String(value);
+  }
+  return normalized;
+}
+
+function normalizeHttpResponse(value) {
+  const status = Number(value?.status || 0);
+  return {
+    status,
+    statusText: String(value?.statusText || ""),
+    headers: normalizeHeaders(value?.headers),
+    body: value?.body == null ? null : String(value.body),
+    ok: status >= 200 && status < 300,
+  };
+}
+
+function subscribeCoralie(type, listener, normalize) {
+  const eventName = "coralie:" + type;
+  const handler = (event) => listener(normalize(event.detail));
+  window.addEventListener(eventName, handler);
+  return () => window.removeEventListener(eventName, handler);
+}
+
+async function getPeerSnapshot() {
+  const encoded = await coralieHost.getPeersJson();
+  return normalizePeers(JSON.parse(String(encoded || "[]")));
+}
+
+async function coralieHttpRequest(request, redirectCount = 0) {
+  if (!coralieHost) throw new Error("Coralie host is not initialized");
+
+  const encodedRequest = JSON.stringify({
+    url: String(request.url),
+    method: String(request.method || "GET").toUpperCase(),
+    headers: request.headers || {},
+    body: request.body == null ? null : String(request.body),
+  });
+
+  const encodedResponse = await coralieHost.httpRequestJson(encodedRequest);
+  const response = normalizeHttpResponse(
+    JSON.parse(String(encodedResponse || "{}"))
+  );
+
+  const location = response.headers.location;
+  if (response.status >= 300 && response.status < 400 && location) {
+    if (redirectCount >= 5) {
+      throw new Error("HTTP redirect limit exceeded");
+    }
+
+    const redirectedUrl = new URL(location, request.url).href;
+    const switchToGet = response.status === 303 || (
+      (response.status === 301 || response.status === 302) &&
+      String(request.method || "GET").toUpperCase() === "POST"
+    );
+
+    return coralieHttpRequest(
+      {
+        ...request,
+        url: redirectedUrl,
+        method: switchToGet ? "GET" : request.method,
+        body: switchToGet ? null : request.body,
+      },
+      redirectCount + 1,
+    );
+  }
+
+  return response;
+}
+
+
+const Storage = {
+  async get(name) {
+    if (!coralieHost) throw new Error("Coralie host is not initialized");
+    return await coralieHost.storageGetItem(String(name));
+  },
+
+  async set(name, value) {
+    if (!coralieHost) throw new Error("Coralie host is not initialized");
+    await coralieHost.storageSetItem(String(name), String(value));
+  },
+};
+
+const Bridge = {
+  encode(value) {
+    return utf8Encoder.encode(value);
+  },
+
+  decode(value) {
+    if (!(value instanceof Uint8Array)) {
+      value = Uint8Array.from(value || []);
+    }
+    return utf8Decoder.decode(value);
+  },
+
+  async sendTo(pubkeyHex, msg) {
+    if (!coralieHost) throw new Error("Coralie host is not initialized");
+    return coralieHost.sendMessage(
+      pubkeyHex,
+      Bridge.encode(JSON.stringify(msg.toWire())),
+    );
+  },
+
+  async broadcastToAllPeers(msg) {
+    return Promise.allSettled(
+      [...GameState.peers.keys()].map((pk) => Bridge.sendTo(pk, msg))
+    );
+  },
+};
+
+// ============================================================
+// SHARED STATE (dispatch-driven; never mutated outside dispatch)
+// ============================================================
+const GameState = {
+  myPubkeyHex: null,
+  myUsername: null,
+  peers: new Map(),        // pubkeyHex -> { username, inGame, gameId }
+  phase: "menu",           // "menu" | "answering" | "voting"
+  gameId: null,
+  config: null,            // { letter, duration, qType, questions: string[] }
+  participants: [],        // pubkeyHex[] snapshot at start/restart time
+  questionIndex: 0,
+  answers: new Map(),      // "qIndex:pubkeyHex" -> { input, ts }
+  votes: new Map(),        // "qIndex:ownerPubkeyHex:voterPubkeyHex" -> { value, ts }
+  lockedPeers: new Set(),  // pubkeyHex set, this game's timeUp senders
+  scores: new Map(),       // pubkeyHex -> { score, ts }, persists across restarts, wiped only by reset. ts guards against an out-of-order self-report clobbering a newer one.
+  answeringDeadline: null, // wall-clock ms (Date.now()-comparable), NOT a countdown — see reduceStart
+};
+
+// ============================================================
+// LOCAL UI STATE (never dispatched, never broadcast)
+// ============================================================
+const UiState = {
+  overlayOpen: false,
+  configMenuOpen: null,   // which DROPDOWN row is expanded (a CONFIG_DROPDOWN_ROWS key), or null — sliders have no open/closed state
+  startError: null,       // string | null — surfaced on Home if QuestionBank.pick() rejects
+  // What Start will actually send if pressed right now. Local and
+  // never dispatched/broadcast — it only becomes real, shared state once
+  // it's embedded in a StartMessage. letters is a Set — "Any" is
+  // represented as all 26 selected, not a separate option.
+  pendingConfig: { letters: new Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ"), duration: 120, questionCount: 12, qType: 1 },
+};
+
+// Dropdown-style config rows only — Duration/Number-of-questions are
+// sliders now (see CONFIG_SLIDERS), not pill lists.
+const CONFIG_OPTIONS = {
+  letters: [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"],
+  qType: [1, 2, 3],
+};
+const CONFIG_DROPDOWN_ROWS = [
+  { key: "letters", rowId: "cfg-row-letter", optionsId: "cfg-options-letter", valueId: "cfg-letter", chevId: "cfg-chev-letter", multi: true },
+  { key: "qType", rowId: "cfg-row-qType", optionsId: "cfg-options-qType", valueId: "cfg-type", chevId: "cfg-chev-qType", multi: false },
+];
+
+// Slider-style config rows — click or drag; snaps to step; not editable
+// any other way (the value label itself is display-only).
+const CONFIG_SLIDERS = [
+  { key: "duration", min: 10, max: 240, step: 10, suffix: " s" },
+  { key: "questionCount", min: 1, max: 24, step: 1, suffix: "" },
+];
+
+// "All 26 selected" reads as "All" rather than listing every letter; a
+// short subset lists them; anything longer collapses to a count so the
+// row doesn't blow out with a wall of letters.
+function summarizeLetters(lettersSet) {
+  if (lettersSet.size === 26) return "All";
+  if (lettersSet.size <= 5) return [...lettersSet].sort().join(", ");
+  return `${lettersSet.size} letters`;
+}
+
+// ============================================================
+// STATIC DOM REFS, looked up once at init
+// ============================================================
+const El = {
+  screens: {
+    menu: null,        // document.querySelector('[data-screen="menu"]')
+    answering: null,   // document.querySelector('[data-screen="answering"]')
+    voting: null,      // document.querySelector('[data-screen="voting"]')
+  },
+  menu: {
+    gearBtn: null,          // #gear-btn
+    peerPill: null,         // #gear-pill-target
+    peerPillCount: null,    // #peer-pill-count
+    cfgLetter: null,        // #cfg-letter
+    cfgDuration: null,      // #cfg-duration
+    cfgQuestions: null,     // #cfg-questions
+    cfgType: null,          // #cfg-type
+    cfgOptions: {},         // per CONFIG_DROPDOWN_ROWS key -> its options container element
+    cfgRows: {},            // per CONFIG_DROPDOWN_ROWS key -> its row element (for click-to-toggle)
+    cfgChevs: {},           // per CONFIG_DROPDOWN_ROWS key -> its chevron span
+    sliderTrackWrap: {},    // per CONFIG_SLIDERS key -> its draggable track-wrap element
+    sliderFill: {},         // per CONFIG_SLIDERS key -> its fill bar element
+    sliderThumb: {},        // per CONFIG_SLIDERS key -> its thumb circle element
+    sliderValue: {},        // per CONFIG_SLIDERS key -> its display-only value label
+    playerList: null,       // #player-list  (delegation target)
+    playerCountBadge: null, // #player-count-badge
+    youRow: null,           // #you-row
+    startBtn: null,         // #start-btn
+    resetBtn: null,         // #reset-btn
+    bankBtn: null,          // #bank-btn
+  },
+  overlay: {
+    root: null,             // #overlay
+    backdrop: null,         // #overlay-backdrop
+    backBtn: null,          // #overlay-back
+    myPubkey: null,         // #my-pubkey
+    copyBtn: null,          // #copy-pubkey-btn
+    usernameInput: null,    // #username-input
+    saveUsernameBtn: null,  // #save-username-btn
+    peerInput: null,        // #peer-input
+    addPeerBtn: null,       // #add-peer-btn
+    meshPeerList: null,     // #mesh-peer-list
+    meshPeerCount: null,    // #mesh-peer-count
+  },
+  answering: {
+    bigLetter: null,        // #big-letter
+    timer: null,            // #timer
+    restartBtn: null,       // #restart-btn
+    instructions: null,     // #instructions
+    lockPlayers: null,      // #lock-players
+    questionsScroll: null,  // #questions-scroll (delegation target)
+  },
+  voting: {
+    bigQNum: null,          // #big-q-num
+    smallQNum: null,        // #small-q-num
+    qContent: null,         // #q-content
+    nextBtn: null,          // #next-btn
+    answersScroll: null,    // #answers-scroll (delegation target)
+  },
+};
+
+function cacheEl() {
+  El.screens.menu = document.querySelector('[data-screen="menu"]');
+  El.screens.answering = document.querySelector('[data-screen="answering"]');
+  El.screens.voting = document.querySelector('[data-screen="voting"]');
+
+  El.menu.gearBtn = document.getElementById("gear-btn");
+  El.menu.peerPill = document.getElementById("gear-pill-target");
+  El.menu.peerPillCount = document.getElementById("peer-pill-count");
+  El.menu.cfgLetter = document.getElementById("cfg-letter");
+  El.menu.cfgDuration = document.getElementById("cfg-duration");
+  El.menu.cfgQuestions = document.getElementById("cfg-questions");
+  El.menu.cfgType = document.getElementById("cfg-type");
+  for (const row of CONFIG_DROPDOWN_ROWS) {
+    El.menu.cfgOptions[row.key] = document.getElementById(row.optionsId);
+    El.menu.cfgRows[row.key] = document.getElementById(row.rowId);
+    El.menu.cfgChevs[row.key] = document.getElementById(row.chevId);
+  }
+  for (const slider of CONFIG_SLIDERS) {
+    El.menu.sliderTrackWrap[slider.key] = document.getElementById(`cfg-slider-${slider.key}`);
+    El.menu.sliderFill[slider.key] = document.getElementById(`cfg-slider-fill-${slider.key}`);
+    El.menu.sliderThumb[slider.key] = document.getElementById(`cfg-slider-thumb-${slider.key}`);
+    El.menu.sliderValue[slider.key] = document.getElementById(slider.key === "duration" ? "cfg-duration" : "cfg-questions");
+  }
+  El.menu.playerList = document.getElementById("player-list");
+  El.menu.playerCountBadge = document.getElementById("player-count-badge");
+  El.menu.youRow = document.getElementById("you-row");
+  El.menu.startBtn = document.getElementById("start-btn");
+  El.menu.resetBtn = document.getElementById("reset-btn");
+  El.menu.bankBtn = document.getElementById("bank-btn");
+
+  El.overlay.root = document.getElementById("overlay");
+  El.overlay.backdrop = document.getElementById("overlay-backdrop");
+  El.overlay.backBtn = document.getElementById("overlay-back");
+  El.overlay.myPubkey = document.getElementById("my-pubkey");
+  El.overlay.copyBtn = document.getElementById("copy-pubkey-btn");
+  El.overlay.usernameInput = document.getElementById("username-input");
+  El.overlay.saveUsernameBtn = document.getElementById("save-username-btn");
+  El.overlay.peerInput = document.getElementById("peer-input");
+  El.overlay.addPeerBtn = document.getElementById("add-peer-btn");
+  El.overlay.meshPeerList = document.getElementById("mesh-peer-list");
+  El.overlay.meshPeerCount = document.getElementById("mesh-peer-count");
+
+  El.answering.bigLetter = document.getElementById("big-letter");
+  El.answering.timer = document.getElementById("timer");
+  El.answering.restartBtn = document.getElementById("restart-btn");
+  El.answering.instructions = document.getElementById("instructions");
+  El.answering.lockPlayers = document.getElementById("lock-players");
+  El.answering.questionsScroll = document.getElementById("questions-scroll");
+
+  El.voting.bigQNum = document.getElementById("big-q-num");
+  El.voting.smallQNum = document.getElementById("small-q-num");
+  El.voting.qContent = document.getElementById("q-content");
+  El.voting.nextBtn = document.getElementById("next-btn");
+  El.voting.answersScroll = document.getElementById("answers-scroll");
+}
+
+// Builds each config row's option pills once, from CONFIG_OPTIONS — never
+// rebuilt afterward, only shown/hidden and re-highlighted (see
+// Render.configOptions). Direct listeners are fine here (not delegation)
+// since this content never gets torn down and recreated the way player
+// rows/question rows/answer rows do.
+function buildConfigOptions() {
+  for (const row of CONFIG_DROPDOWN_ROWS) {
+    const container = El.menu.cfgOptions[row.key];
+    container.innerHTML = "";
+    for (const value of CONFIG_OPTIONS[row.key]) {
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "cfg-option";
+      pill.dataset.cfgValue = String(value);
+      pill.textContent = String(value);
+      container.appendChild(pill);
+    }
+  }
+}
+
+// Pointer-driven drag/click for Duration and Number-of-questions. Both
+// pointerdown and pointermove (while captured) recompute the value from
+// the pointer's X position — a plain click is just a drag that starts and
+// ends at the same spot, so no separate "click" handling is needed.
+function valueFromPointerX(clientX, slider) {
+  const rect = El.menu.sliderTrackWrap[slider.key].getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  const raw = slider.min + ratio * (slider.max - slider.min);
+  const snapped = Math.round(raw / slider.step) * slider.step;
+  return Math.max(slider.min, Math.min(slider.max, snapped));
+}
+
+function wireSliders() {
+  for (const slider of CONFIG_SLIDERS) {
+    const trackWrap = El.menu.sliderTrackWrap[slider.key];
+    let dragging = false;
+
+    const applyFromEvent = (e) => {
+      UiState.pendingConfig[slider.key] = valueFromPointerX(e.clientX, slider);
+      Render.configWidgets();
+    };
+
+    trackWrap.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      trackWrap.setPointerCapture(e.pointerId);
+      applyFromEvent(e);
+    });
+    trackWrap.addEventListener("pointermove", (e) => {
+      if (dragging) applyFromEvent(e);
+    });
+    trackWrap.addEventListener("pointerup", (e) => {
+      dragging = false;
+      trackWrap.releasePointerCapture(e.pointerId);
+    });
+    trackWrap.addEventListener("pointercancel", () => { dragging = false; });
+  }
+}
+
+// ============================================================
+// REDUCE — one pure function per message type: given the current
+// GameState + an already-guard-passed message, decide what
+// changes. Mutates GameState in place (Maps/Sets make a fully
+// immutable copy-on-write style expensive for little benefit
+// here) but never touches the DOM, the bridge, or broadcasts —
+// that's Effects' job, called right after this by dispatch.
+// ============================================================
+
+// Every reducer that needs "who sent this" reads meta.from directly.
+// Both call sites into dispatch (Actions.* and handleBridgeEvent) are
+// responsible for always populating it — for a local action that's your
+// own pubkey, for a remote one it's data.fromPubkeyHex. No branching
+// needed here as long as that invariant holds.
+
+function reduceUsername(state, msg, meta) {
+  const sender = meta.from;
+  if (sender === state.myPubkeyHex) return; // your own name change bypasses dispatch entirely (see Actions.saveUsername)
+  const peer = state.peers.get(sender) ?? {};
+  peer.username = msg.name;
+  state.peers.set(sender, peer);
+}
+
+function reduceGameStatus(state, msg, meta) {
+  const sender = meta.from;
+  if (sender === state.myPubkeyHex) return;
+  const peer = state.peers.get(sender) ?? {};
+  peer.inGame = msg.inGame;
+  peer.gameId = msg.inGame ? msg.gameId : null;
+  state.peers.set(sender, peer);
+}
+
+function reduceReset(state) {
+  state.scores.clear(); // everyone reads back to 0 via `state.scores.get(pk)?.score ?? 0`
+}
+
+function reduceStart(state, msg) {
+  // Covers both fresh start and restart — appliesTo() already confirmed this
+  // is either a start we're free to join, or a restart of the game we're in.
+  state.gameId = msg.gameId;
+  state.phase = "answering";
+  state.config = { letter: msg.letter, duration: msg.duration, qType: msg.qType, questions: msg.questions };
+  state.participants = msg.participants;
+  state.questionIndex = 0;
+  state.answers = new Map();   // fresh gameId => no prior answers can apply anyway
+  state.votes = new Map();
+  state.lockedPeers = new Set();
+  // Derived from the message, not Date.now() here — every peer who applies
+  // this same start message computes the identical absolute deadline,
+  // regardless of small propagation-delay differences in when each of
+  // them actually got around to processing it.
+  state.answeringDeadline = msg.ts + msg.duration * 1000;
+  // deliberately NOT touching state.scores — only reduceReset does that
+}
+
+function reduceWord(state, msg, meta) {
+  const sender = meta.from;
+  const key = `${msg.questionIndex}:${sender}`;
+  const existing = state.answers.get(key);
+  if (!existing || msg.ts > existing.ts) {
+    state.answers.set(key, { input: msg.input, ts: msg.ts });
+  }
+}
+
+function reduceTimeUp(state, msg, meta) {
+  state.lockedPeers.add(meta.from);
+}
+
+function reduceVotingStage(state, msg) {
+  // msg.answers is a serialized Map (array of [key, {input, ts}] entries) —
+  // merge it into ours with the same latest-ts-wins rule as reduceWord.
+  for (const [key, entry] of msg.answers) {
+    const existing = state.answers.get(key);
+    if (!existing || entry.ts > existing.ts) state.answers.set(key, entry);
+  }
+  // Only transition once — further votingStage broadcasts from stragglers
+  // should just keep merging answers, not re-reset votes/questionIndex.
+  if (state.phase !== "voting") {
+    state.phase = "voting";
+    state.questionIndex = 0;
+  }
+}
+
+function reduceVote(state, msg, meta) {
+  // Blank answers are not votable. Enforce this in the reducer as well as
+  // the UI so votes from older or modified clients cannot affect scoring.
+  if (!hasSubmittedAnswer(state, msg.questionIndex, msg.answerOwnerPubkeyHex)) return;
+
+  const voter = meta.from;
+  const key = `${msg.questionIndex}:${msg.answerOwnerPubkeyHex}:${voter}`;
+  const existing = state.votes.get(key);
+  if (!existing || msg.ts > existing.ts) {
+    state.votes.set(key, { value: msg.value, ts: msg.ts });
+  }
+}
+
+// Shared by reduceNext's end-of-game transition AND the mesh-failure
+// recovery path in handleBridgeEvent — both need to land GameState back
+// in the exact same "no game" shape.
+function resetToMenu(state) {
+  state.phase = "menu";
+  state.gameId = null;
+  state.config = null;
+  state.participants = [];
+  state.questionIndex = 0;
+  state.answers = new Map();
+  state.votes = new Map();
+  state.lockedPeers = new Set();
+  state.answeringDeadline = null;
+}
+
+// Shared by reduceNext's own-score accumulation AND Render.voting's live
+// per-answer display — one definition of "how many points has this answer
+// gotten so far," used everywhere that needs it.
+function hasSubmittedAnswer(state, questionIndex, ownerPubkeyHex) {
+  const entry = state.answers.get(`${questionIndex}:${ownerPubkeyHex}`);
+  return Boolean(entry && typeof entry.input === "string" && entry.input.trim().length > 0);
+}
+
+function sumVotesForAnswer(state, questionIndex, ownerPubkeyHex) {
+  if (!hasSubmittedAnswer(state, questionIndex, ownerPubkeyHex)) return 0;
+
+  let total = 0;
+  for (const [key, entry] of state.votes.entries()) {
+    const [qIdx, owner] = key.split(":");
+    if (Number(qIdx) === questionIndex && owner === ownerPubkeyHex) total += entry.value;
+  }
+  return total;
+}
+function countVotesForAnswer(state, questionIndex, ownerPubkeyHex) {
+  if (!hasSubmittedAnswer(state, questionIndex, ownerPubkeyHex)) return 0;
+
+  let count = 0;
+  for (const [key] of state.votes.entries()) {
+    const [qIdx, owner] = key.split(":");
+    if (Number(qIdx) === questionIndex && owner === ownerPubkeyHex) count++;
+  }
+  return count;
+}
+
+function reduceNext(state, msg) {
+  // Bank YOUR OWN points for the question you're leaving. +1 if the round's
+  // vote sum came out positive, 0 otherwise (zero itself does NOT count as
+  // positive). This is why scoring is "peer as authority for their own
+  // total": everyone banks their OWN score from THEIR OWN view of the
+  // votes, rather than trying to derive everyone else's score from data
+  // that might not have finished propagating to them yet. Effects.onNext
+  // broadcasts this new total.
+  const finishedIndex = state.questionIndex;
+  const roundSum = sumVotesForAnswer(state, finishedIndex, state.myPubkeyHex);
+  const earned = roundSum > 0 ? 1 : 0;
+  const prevScore = state.scores.get(state.myPubkeyHex)?.score ?? 0;
+  state.scores.set(state.myPubkeyHex, { score: prevScore + earned, ts: msg.ts });
+
+  state.questionIndex = msg.questionIndex;
+  if (state.questionIndex >= state.config.questions.length) {
+    // past the last question: no results screen, straight back to menu
+    resetToMenu(state);
+    // GameStatusMessage({ inGame: false }) is broadcast by Effects.onNext,
+    // not here — Reduce only mutates state, never causes side effects.
+  }
+}
+
+function reduceScore(state, msg, meta) {
+  const sender = meta.from;
+  if (sender === state.myPubkeyHex) return; // never actually arrives for yourself (sendMessage doesn't echo); defensive only
+  const existing = state.scores.get(sender);
+  if (!existing || msg.ts > existing.ts) {
+    state.scores.set(sender, { score: msg.score, ts: msg.ts });
+  }
+}
+
+const Reduce = {
+  username: reduceUsername,
+  gameStatus: reduceGameStatus,
+  reset: reduceReset,
+  score: reduceScore,
+  start: reduceStart,
+  word: reduceWord,
+  timeUp: reduceTimeUp,
+  votingStage: reduceVotingStage,
+  vote: reduceVote,
+  next: reduceNext,
+};
+
+// Plain JS timers, not the bridge's queueTimer/cancelTimer.
+const Timers = {
+  _handles: new Map(), // id -> setTimeout handle, so cancel(id) can find it
+
+  start(id, delaySeconds, purpose, gameId) {
+    Timers.cancel(id); // starting again under the same id replaces the pending one
+    const handle = setTimeout(() => {
+      Timers._handles.delete(id);
+      handleTimerFired({ purpose, gameId });
+    }, delaySeconds * 1000);
+    Timers._handles.set(id, handle);
+  },
+
+  cancel(id) {
+    const handle = Timers._handles.get(id);
+    if (handle === undefined) return; // no-op if not pending, same semantics as before
+    clearTimeout(handle);
+    Timers._handles.delete(id);
+  },
+};
+
+// Shared by both timer purposes — stale-game check first, then dispatch to
+// whichever effect the timer was for.
+function handleTimerFired({ purpose, gameId }) {
+  if (gameId !== GameState.gameId) return; // stale timer, game already moved on
+  if (purpose === "answeringTimeout") Actions.timeUp();
+  if (purpose === "voteStageTimeout") Effects.broadcastVotingStage(GameState);
+}
+
+const VOTE_STAGE_GRACE_SECONDS = 5; // how long to wait for stragglers after YOUR OWN lock, before proceeding without them
+
+// ============================================================
+// EFFECTS — the only layer allowed to cause anything (broadcast
+// a message, schedule a timer) as a consequence of a state
+// transition. Runs right after Reduce, on the already-mutated
+// GameState. Never touches the DOM.
+// ============================================================
+const Effects = {
+  after(state, msg, meta) {
+    if (msg.type === "start") Effects.onStart(state);
+    if (msg.type === "timeUp") Effects.onTimeUp(state, msg, meta);
+    if (msg.type === "next") Effects.onNext(state);
+  },
+
+  onStart(state) {
+    Bridge.broadcastToAllPeers(new GameStatusMessage({ inGame: true, gameId: state.gameId, ts: Date.now() }));
+    // Same absolute deadline the display uses (see reduceStart), converted
+    // to "seconds from now" only at the point the bridge actually needs
+    // that shape — if we'd instead just used state.config.duration here,
+    // a peer who received the start message late would get a native timer
+    // that fires later than what their own countdown display shows.
+    const delaySeconds = Math.max(0, (state.answeringDeadline - Date.now()) / 1000);
+    Timers.start(`answering:${state.gameId}`, delaySeconds, "answeringTimeout", state.gameId);
+  },
+
+  onNext(state) {
+    // Broadcast the total reduceNext just banked, every time — not only on
+    // the final question. Everyone else records this self-report rather
+    // than trying to derive it themselves (see reduceNext's comment).
+    const mine = state.scores.get(state.myPubkeyHex);
+    Bridge.broadcastToAllPeers(new ScoreMessage({ score: mine.score, ts: mine.ts }));
+
+    if (state.phase === "menu") {
+      // reduceNext just crossed the last question — game's actually over
+      Bridge.broadcastToAllPeers(new GameStatusMessage({ inGame: false, ts: Date.now() }));
+    }
+  },
+
+  onTimeUp(state, msg, meta) {
+    if (state.phase !== "answering") return; // already moved on (e.g. a stray/late timeUp)
+
+    const allLocked = state.participants.every((pk) => state.lockedPeers.has(pk));
+    if (allLocked) {
+      Effects.broadcastVotingStage(state);
+    } else if (meta.from === state.myPubkeyHex) {
+      // Specifically OUR OWN lock just landed (not some other peer's) —
+      // arm the fallback exactly once per game, so a peer who never
+      // checks in can't stall the room forever.
+      Timers.start(`voteStageTimeout:${state.gameId}`, VOTE_STAGE_GRACE_SECONDS, "voteStageTimeout", state.gameId);
+    }
+  },
+
+  // Also called directly by the voteStageTimeout branch of handleBridgeEvent
+  // when the grace period elapses without everyone checking in.
+  broadcastVotingStage(state) {
+    Timers.cancel(`voteStageTimeout:${state.gameId}`); // harmless if it already fired/wasn't pending
+    const msg = new VotingStageMessage({
+      gameId: state.gameId,
+      answers: [...state.answers.entries()],
+      ts: Date.now(),
+    });
+    dispatch(msg, { origin: "local", from: state.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+};
+
+// ============================================================
+// DISPATCH — the one funnel. Called from exactly two places:
+//   (a) the coralie:message DOM event
+//   (b) Actions.* (local user-initiated)
+// ============================================================
+function dispatch(msg, meta) {
+  // meta: { origin: "local" | "remote", from: pubkeyHex }  — from is always populated
+
+  if (!messageApplies(msg, GameState)) return; // per-type rule, see MESSAGES above
+
+  const reducer = Reduce[msg.type];
+  if (reducer) reducer(GameState, msg, meta); // mutates GameState in place
+
+  Effects.after(GameState, msg, meta);
+
+  Render.draw(GameState);
+}
+
+// ============================================================
+// QUESTION BANK — the starter loads the published Google Docs through
+// coralieHttpRequest(). Android routes this through the native HTTP proxy,
+// while the browser host routes it through fetch(). Both expose the same JSON
+// response contract and 64 MiB response limit. Other peers
+// receive the selected question text in the start message and make no request.
+//
+// server.js also built a tag system (^tag syntax, ticked/crossed
+// filtering) for the Bank screen's tag-selection UI. That parsing
+// is preserved per-question (tagIndices) for when the Bank screen
+// gets built, but selection here always draws from the FULL pool
+// for the given type — no filtering UI exists yet.
+// ============================================================
+const QUESTION_DOC_IDS = [
+  "2PACX-1vQBmAtv8p3bzHsJv8wHdsqwdAp_rAXw-8PMV2vWwaTvvkEe6AOCriE04BY4WoP681xo_advjQP_7oF2", // doc index 0, "^tag" syntax
+  "2PACX-1vSFl8EhS7OlDklM4sLGLSh6SiLPrKlkc55IscpAXAI_B1BzaI4SShD5IeOGVBdqaTfVnQqm0DHiJH-S", // doc index 1, plain lines
+];
+
+// qType (1/2/3, what a game's config actually is) now directly selects BOTH
+// the question pool AND the validity format. Types 1 and 2 share the
+// original pool (doc index 0) and differ only in which letter-position
+// rule applies; type 3 is the original "Type 2" pool (doc index 1), which
+// always used the verbatim-match rule anyway — this is why that pool was
+// parsed without tag-stripping in the first place (see below): its
+// question text needs to be searched for verbatim within the answer.
+const Q_TYPE_INFO = {
+  1: { docIndex: 0, format: 1 },
+  2: { docIndex: 0, format: 2 },
+  3: { docIndex: 1, format: 3 },
+};
+
+const QuestionBank = {
+  _cache: [null, null], // per-DOC-INDEX parsed { content, tagIndices }[], fetched lazily and reused
+
+  async ensureLoaded(docIndex) {
+    if (!QuestionBank._cache[docIndex]) {
+      QuestionBank._cache[docIndex] = await QuestionBank._fetchAndParse(docIndex);
+    }
+    return QuestionBank._cache[docIndex];
+  },
+
+  async _fetchAndParse(docIndex) {
+    if (!coralieHost) throw new Error("Coralie host is not initialized");
+
+    const response = await coralieHttpRequest({
+      url: `https://docs.google.com/document/d/e/${QUESTION_DOC_IDS[docIndex]}/pub`,
+      method: "GET",
+      headers: {},
+      body: null,
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `question doc fetch failed: ${response.status} ${response.statusText}`.trim()
+      );
+    }
+
+    const html = response.body || "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    // Google's published export alternates between span.c0/span.c1
+    // depending on the doc's own formatting history — same swap check
+    // the original server-side parser did.
+    const c0 = doc.querySelectorAll("span.c0");
+    const spans = c0.length === 0 ? doc.querySelectorAll("span.c1") : c0;
+
+    const tagRepo = docIndex === 0 ? [{ content: "Tagless", questionIndices: new Set() }] : null;
+    const questions = [];
+
+    spans.forEach((span) => {
+      const line = span.textContent.trim();
+      if (!line) return;
+
+      if (docIndex !== 0) {
+        questions.push({ content: line, tagIndices: [] });
+        return;
+      }
+
+      // "^tag" syntax: question text is everything before the first ^.
+      const content = line.split("^")[0].trim();
+      const tagNames = [...line.matchAll(/\^([^^\n\r]+)/g)].map((m) => m[1].trim());
+      const tagIndices = tagNames.map((name) => {
+        let idx = tagRepo.findIndex((t) => t.content === name);
+        if (idx === -1) {
+          idx = tagRepo.length;
+          tagRepo.push({ content: name, questionIndices: new Set() });
+        }
+        tagRepo[idx].questionIndices.add(questions.length);
+        return idx;
+      });
+      if (tagNames.length === 0) {
+        tagRepo[0].questionIndices.add(questions.length);
+        tagIndices.push(0);
+      }
+      questions.push({ content, tagIndices });
+    });
+
+    return questions; // tagRepo isn't returned/kept yet — nothing consumes it until the Bank screen exists
+  },
+
+  // Fisher–Yates — NOT `.sort(() => Math.random() - 0.5)`, which is a
+  // well-known non-uniform shuffle that over/under-represents certain orders.
+  async pick(qType, count) {
+    const pool = await QuestionBank.ensureLoaded(Q_TYPE_INFO[qType].docIndex);
+    const shuffled = pool.map((q) => q.content);
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, count);
+  },
+};
+
+// ============================================================
+// VALIDITY — regex-based answer checking, shared by Answering's
+// blur-triggered check and (later) Voting's decoration of who
+// answered "correctly." Pure function: given the same inputs,
+// always the same answer, so nothing about validity needs to be
+// transmitted over the wire — every peer can derive it themselves.
+// ============================================================
+function isValidAnswer(text, letter, question, qType) {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (typeof letter !== "string" || !letter) return false; // fail closed, don't throw — a throw here would also silently kill the submitWord call right after it in the focusout handler
+
+  const format = Q_TYPE_INFO[qType].format;
+  const L = letter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // escape, just in case
+
+  if (format === 1) {
+    // Starts with the letter.
+    return new RegExp(`^${L}`, "i").test(trimmed);
+  }
+  if (format === 2) {
+    // Does NOT start with the letter, but contains it somewhere later.
+    return new RegExp(`^[^${L}].*${L}`, "i").test(trimmed);
+  }
+  if (format === 3) {
+    // The question text must appear verbatim (case-insensitive) in the
+    // answer, AND the letter must appear somewhere OUTSIDE that matched
+    // span — not just anywhere in the answer, since the question text
+    // itself might already contain the letter, which would make the
+    // letter check trivially true for any answer that's just the bare
+    // question. Using the letter's first match position is what actually
+    // rules out "Question" alone (no room left outside the match) while
+    // allowing "QuestionQuestion"/"QuestionQ" (the extra portion supplies
+    // the letter).
+    const lowerAnswer = trimmed.toLowerCase();
+    const lowerQuestion = question.trim().toLowerCase();
+    const matchIndex = lowerAnswer.indexOf(lowerQuestion);
+    if (matchIndex === -1) return false; // doesn't contain the question at all
+    const outside = lowerAnswer.slice(0, matchIndex) + lowerAnswer.slice(matchIndex + lowerQuestion.length);
+    return outside.includes(letter.toLowerCase());
+  }
+  return false;
+}
+
+// Format-appropriate instructions — Format 1 is the only one where "starts
+// with this letter" is actually true; Format 2/3 need different wording or
+// they'd flatly contradict what the game is checking.
+const FORMAT_INSTRUCTIONS = {
+  1: "Answer each category with a word or phrase starting with this letter.",
+  2: "Answer each category with a word or phrase that contains this letter, but doesn't start with it.",
+  3: "Answer each category with a word or phrase that contains this letter (not at the start) and includes the category text itself.",
+};
+
+// letters is a Set the starter picks from — "Any" is just "all 26
+// selected," not a separate case to special-case here.
+function pickRandomLetter(lettersSet) {
+  const pool = [...lettersSet];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+const Actions = {
+  async startGame({ letters, duration, questionCount, qType }) {
+    const resolvedLetter = pickRandomLetter(letters);
+    let questions;
+    try {
+      questions = await QuestionBank.pick(qType, questionCount);
+    } catch (e) {
+      UiState.startError = "Couldn't load questions — check your connection and try again.";
+      Render.menu(GameState); // TODO: Render.menu still needs to actually surface UiState.startError
+      return;
+    }
+    UiState.startError = null;
+    // Participants default to everyone currently connected — Home has no
+    // per-player invite selection, "Start" invites the whole room. (This
+    // was previously never populated at all — participants would've come
+    // through as undefined, which fails StartMessage's own validation on
+    // every receiving peer, silently dropping the message everywhere.)
+    const participants = [GameState.myPubkeyHex, ...GameState.peers.keys()];
+    const msg = StartMessage.freshStart({
+      starterPubkeyHex: GameState.myPubkeyHex,
+      participants,
+      letter: resolvedLetter,
+      duration,
+      qType,
+      questions,
+    });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  // Picks a FRESH set of questions for the new round, rather than replaying
+  // the ending game's questions — a restart is a new attempt, not a replay.
+  // The player pressing Restart also resolves a fresh random letter from
+  // their own locally selected letter set.
+  async restart(participants) {
+    const resolvedLetter = pickRandomLetter(UiState.pendingConfig.letters);
+    let questions;
+    try {
+      questions = await QuestionBank.pick(GameState.config.qType, GameState.config.questions.length);
+    } catch (e) {
+      UiState.startError = "Couldn't load questions — check your connection and try again.";
+      Render.answering(GameState); // TODO: same surfacing gap as startGame, different screen
+      return;
+    }
+    UiState.startError = null;
+    const msg = StartMessage.restartOf(GameState.gameId, {
+      starterPubkeyHex: GameState.myPubkeyHex,
+      participants,
+      letter: resolvedLetter,
+      duration: GameState.config.duration,
+      qType: GameState.config.qType,
+      questions,
+    });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  reset() {
+    const msg = new ResetMessage({ ts: Date.now() });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  submitWord(questionIndex, text) {
+    const msg = new WordMessage({ gameId: GameState.gameId, questionIndex, input: text, ts: Date.now() });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  timeUp() {
+    const msg = new TimeUpMessage({ gameId: GameState.gameId, ts: Date.now() });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  castVote(questionIndex, answerOwnerPubkeyHex, value) {
+    if (!hasSubmittedAnswer(GameState, questionIndex, answerOwnerPubkeyHex)) return;
+
+    const msg = new VoteMessage({ gameId: GameState.gameId, questionIndex, answerOwnerPubkeyHex, value, ts: Date.now() });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  next() {
+    const msg = new NextMessage({ gameId: GameState.gameId, questionIndex: GameState.questionIndex + 1, ts: Date.now() });
+    dispatch(msg, { origin: "local", from: GameState.myPubkeyHex });
+    Bridge.broadcastToAllPeers(msg);
+  },
+
+  // --- not game messages, but still go through Actions for consistency ---
+  async addPeer(pubkeyHex) {
+    if (!coralieHost) throw new Error("Coralie host is not initialized");
+    await coralieHost.addPeer(pubkeyHex);
+    // no dispatch: connection state arrives via onPeers(), not here
+  },
+
+  async saveUsername(name) {
+    const normalizedName = String(name || "").trim();
+    if (!normalizedName) return;
+
+    const previousName = String(GameState.myUsername || "").trim();
+    await Storage.set("username", normalizedName);
+    GameState.myUsername = normalizedName; // TODO: should this actually live in GameState or a separate Identity object?
+
+    // Announce only when the local username actually changes.
+    if (normalizedName !== previousName) {
+      announceUsernameToAllPeers();
+    }
+    // no local dispatch needed: this doesn't change shared *game* state
+  },
+};
+
+// ============================================================
+// RENDER — the only way state reaches the screen. Two paths:
+//   Render.draw(state)   <- called only from the end of dispatch()
+//   Render.overlay()     <- called directly from local UI handlers
+//                           (UiState is not dispatch-driven)
+// ============================================================
+const Render = {
+  draw(state) {
+    for (const [name, el] of Object.entries(El.screens)) {
+      el.classList.toggle("active", state.phase === name);
+    }
+    // Leaving Answering (voting, or back to menu) stops the cosmetic tick
+    // and forces a fresh skeleton+tick build if we ever re-enter it later.
+    if (state.phase !== "answering" && Render._answeringTickIntervalId !== null) {
+      clearInterval(Render._answeringTickIntervalId);
+      Render._answeringTickIntervalId = null;
+      Render.answeringBuiltForGameId = null;
+    }
+    if (state.phase === "menu") Render.menu(state);
+    if (state.phase === "answering") Render.answering(state);
+    if (state.phase === "voting") Render.voting(state);
+    Render.overlay(); // independent of phase — keeps it live if open during a peer change
+  },
+
+  menu(state) {
+    // Connection indicator: total mesh presence, unfiltered by game status —
+    // "am I connected to anyone at all," a different question from "who's
+    // available to invite" below. +1 counts yourself.
+    El.menu.peerPillCount.textContent = `${state.peers.size + 1} connected`;
+
+    // Players list: everyone on the menu right now. Peers currently in a
+    // DIFFERENT game are excluded — inviting them would just be silently
+    // ignored per StartMessage.appliesTo's own-game check, so showing them
+    // as available here would be misleading.
+    const availablePeers = [...state.peers.entries()].filter(([, p]) => !p.inGame);
+    const rows = [
+      { pubkeyHex: state.myPubkeyHex, username: state.myUsername, isSelf: true },
+      ...availablePeers.map(([pubkeyHex, p]) => ({ pubkeyHex, username: p.username, isSelf: false })),
+    ];
+
+    El.menu.playerCountBadge.textContent = String(rows.length);
+
+    const scores = rows.map((r) => state.scores.get(r.pubkeyHex)?.score ?? 0);
+    const highest = Math.max(...scores);
+
+    El.menu.playerList.innerHTML = "";
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "player-row" + (r.isSelf ? " you-row" : "");
+      if (r.isSelf) row.dataset.self = "true"; // read by the delegated click listener
+
+      const dot = document.createElement("span");
+      dot.className = "pulse-dot";
+      row.appendChild(dot);
+
+      const nameDiv = document.createElement("div");
+      nameDiv.className = "p-name" + (r.isSelf ? " you" : "");
+      if (r.isSelf) {
+        nameDiv.append("You "); // safe: literal text, not peer-supplied
+        const hint = document.createElement("span");
+        hint.className = "edit-hint";
+        hint.textContent = "tap to rename ✎";
+        nameDiv.appendChild(hint);
+      } else {
+        // Peer-supplied — textContent only, never innerHTML/template strings.
+        nameDiv.textContent = r.username || `${r.pubkeyHex.slice(0, 6)}… (no username yet)`;
+      }
+      row.appendChild(nameDiv);
+
+      const scoreDelta = document.createElement("div");
+      scoreDelta.className = "p-score-delta";
+      const scoreSpan = document.createElement("span");
+      // Only highlight a leader once someone's actually ahead — everyone
+      // tied at 0 shouldn't all light up gold.
+      scoreSpan.className = "p-score" + (scores[i] === highest && highest > 0 ? " highest" : "");
+      scoreSpan.textContent = String(scores[i]);
+      scoreDelta.appendChild(scoreSpan);
+      // TODO: per-round delta (+N) has nowhere to come from yet — turning
+      // merged votes into points is still an open gap, not just this
+      // display. A second span here shows it once that exists.
+      row.appendChild(scoreDelta);
+
+      El.menu.playerList.appendChild(row);
+    });
+
+    // Reflects what Start will actually send (see UiState.pendingConfig).
+    Render.configWidgets();
+
+    // TODO: surface UiState.startError somewhere on this screen if set
+  },
+
+  // Row skeleton (question number/category/input boxes) only needs
+  // building once per game, right when phase enters "answering" — NOT on
+  // every subsequent word dispatch. Rebuilding it every time would destroy
+  // and recreate the contenteditable box you're actively typing into,
+  // killing focus/cursor position mid-keystroke. This cache is how we
+  // tell "just entered this game" apart from "some word arrived."
+  answeringBuiltForGameId: null,
+  _answeringTickIntervalId: null,
+
+  answering(state) {
+    if (Render.answeringBuiltForGameId !== state.gameId) {
+      // Big letter and instructions are set here, once — never touched
+      // again for the life of this game.
+      El.answering.bigLetter.textContent = state.config.letter;
+      const format = Q_TYPE_INFO[state.config.qType].format;
+      El.answering.instructions.textContent = FORMAT_INSTRUCTIONS[format];
+
+      El.answering.questionsScroll.innerHTML = "";
+      state.config.questions.forEach((questionText, i) => {
+        const row = document.createElement("div");
+        row.className = "question";
+
+        const head = document.createElement("div");
+        head.className = "q-head";
+        const num = document.createElement("span");
+        num.className = "q-num";
+        num.textContent = String(i + 1).padStart(2, "0");
+        const content = document.createElement("span");
+        content.className = "q-content";
+        content.textContent = questionText; // from the starter's own fetch, but still textContent-only on principle
+        head.appendChild(num);
+        head.appendChild(content);
+        row.appendChild(head);
+
+        const wrap = document.createElement("div");
+        wrap.className = "q-input-wrap";
+        const input = document.createElement("div");
+        input.className = "q-input";
+        input.contentEditable = "true";
+        input.dataset.placeholder = "Type an answer…";
+        input.dataset.questionIndex = String(i);
+        const border = document.createElement("div");
+        border.className = "q-input-border";
+        wrap.appendChild(input);
+        wrap.appendChild(border);
+        row.appendChild(wrap);
+
+        El.answering.questionsScroll.appendChild(row);
+      });
+
+      Render.answeringBuiltForGameId = state.gameId;
+
+      clearInterval(Render._answeringTickIntervalId); // in case one was somehow still running
+      Render._answeringTickIntervalId = setInterval(Render.tickAnsweringTimer, 500);
+      Render.tickAnsweringTimer(); // paint immediately, don't wait for the first tick
+    }
+
+    // Safe to rebuild every dispatch — no contenteditable in here to steal
+    // focus from, unlike the question rows above.
+    const iAmLocked = state.lockedPeers.has(state.myPubkeyHex);
+    El.screens.answering.classList.toggle("locked", iAmLocked);
+    if (iAmLocked) {
+      El.answering.lockPlayers.innerHTML = "";
+      for (const pubkeyHex of state.participants) {
+        if (pubkeyHex === state.myPubkeyHex) continue; // mockup shows others, not yourself
+        const locked = state.lockedPeers.has(pubkeyHex);
+        const row = document.createElement("div");
+        row.className = "lock-player-row" + (locked ? "" : " pending");
+        const dot = document.createElement("span");
+        dot.className = "pulse-dot";
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = state.peers.get(pubkeyHex)?.username || `${pubkeyHex.slice(0, 6)}…`;
+        const status = document.createElement("span");
+        status.className = "status";
+        status.textContent = locked ? "locked" : "still going";
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.appendChild(status);
+        El.answering.lockPlayers.appendChild(row);
+      }
+    }
+  },
+
+  // Purely cosmetic, and deliberately NOT tick-accumulating: recomputes
+  // remaining time fresh from a fixed wall-clock deadline every call, so
+  // throttled/skipped intervals (e.g. while the app is backgrounded) can
+  // only leave the display briefly stale, never wrong — the next tick that
+  // does fire snaps straight to the correct value. This never triggers the
+  // actual lock; that's Timers' plain setTimeout (see handleTimerFired),
+  // and this display keeps working correctly even if that setTimeout got
+  // throttled and fired late — it'd just mean the display briefly showed
+  // 00:00 before the lock visually caught up, not an incorrect value.
+  tickAnsweringTimer() {
+    const remainingMs = Math.max(0, GameState.answeringDeadline - Date.now());
+    const totalSeconds = Math.ceil(remainingMs / 1000);
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    El.answering.timer.textContent = `${minutes}:${seconds}`;
+    El.answering.timer.classList.toggle("low-time", remainingMs > 0 && remainingMs <= 10000);
+  },
+
+  voting(state) {
+    El.voting.bigQNum.textContent = String(state.questionIndex + 1);
+    El.voting.smallQNum.textContent = `of ${state.config.questions.length}`;
+    El.voting.qContent.textContent = state.config.questions[state.questionIndex];
+
+    // Row order is genuinely arbitrary — state.participants' own order is
+    // fine, and nothing requires it to match what any other peer sees.
+    El.voting.answersScroll.innerHTML = "";
+    for (const ownerPubkeyHex of state.participants) {
+      const answerEntry = state.answers.get(`${state.questionIndex}:${ownerPubkeyHex}`);
+      const answerText = answerEntry?.input?.trim() || "(no answer)";
+      const hasAnswer = hasSubmittedAnswer(state, state.questionIndex, ownerPubkeyHex);
+      const isSelf = ownerPubkeyHex === state.myPubkeyHex;
+
+      const row = document.createElement("div");
+      row.className = "answer";
+      row.dataset.questionIndex = String(state.questionIndex);
+      row.dataset.ownerPubkey = ownerPubkeyHex;
+
+      const contentDiv = document.createElement("div");
+      contentDiv.className = "a-content";
+      if (!isSelf) {
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "a-name";
+        nameSpan.textContent = (state.peers.get(ownerPubkeyHex)?.username || `${ownerPubkeyHex.slice(0, 6)}…`) + ":";
+        contentDiv.appendChild(nameSpan);
+      }
+      contentDiv.append(answerText); // peer-supplied — append(), not innerHTML
+      row.appendChild(contentDiv);
+
+      const rightDiv = document.createElement("div");
+      rightDiv.className = "a-right";
+
+      if (!hasAnswer) {
+        const tag = document.createElement("div");
+        tag.className = "no-answer-tag";
+        tag.textContent = "No answer";
+        rightDiv.appendChild(tag);
+      } else {
+        if (isSelf) {
+          const tag = document.createElement("div");
+          tag.className = "your-answer-tag";
+          tag.textContent = "Your answer";
+          rightDiv.appendChild(tag);
+        } else {
+          const track = document.createElement("div");
+          track.className = "vote-track";
+          const myVote = state.votes.get(`${state.questionIndex}:${ownerPubkeyHex}:${state.myPubkeyHex}`)?.value;
+          for (const value of [-2, -1, 0, 1, 2]) {
+            const btn = document.createElement("button");
+            btn.className = "vote-btn";
+            btn.dataset.value = String(value);
+            btn.textContent = (value > 0 ? "+" : "") + String(value); // "-0" for 0, matching the mockup
+            if (value === 0) btn.textContent = "-0";
+            if (myVote === value) {
+              btn.classList.add("selected");
+              if (value > 0) btn.classList.add("correct");
+              if (value < 0) btn.classList.add("negative");
+              // value === 0 gets neither — stays visually neutral/"transparent"
+            }
+            track.appendChild(btn);
+          }
+          rightDiv.appendChild(track);
+        }
+
+        const points = sumVotesForAnswer(state, state.questionIndex, ownerPubkeyHex);
+        const votesCast = countVotesForAnswer(state, state.questionIndex, ownerPubkeyHex);
+        const eligibleVoters = state.participants.length - 1; // everyone except the answer's own author
+
+        const stats = document.createElement("div");
+        stats.className = "a-stats";
+        const pointsSpan = document.createElement("span");
+        pointsSpan.className = "a-points" + (points > 0 ? " correct" : "");
+        pointsSpan.textContent = (points > 0 ? "+" : "") + String(points);
+        const sep = document.createElement("span");
+        sep.className = "a-sep";
+        sep.textContent = "·";
+        const votesSpan = document.createElement("span");
+        votesSpan.className = "a-votes" + (votesCast === eligibleVoters ? " correct" : "");
+        votesSpan.textContent = `${votesCast}/${eligibleVoters} voted`;
+        stats.appendChild(pointsSpan);
+        stats.appendChild(sep);
+        stats.appendChild(votesSpan);
+        rightDiv.appendChild(stats);
+      }
+
+      row.appendChild(rightDiv);
+      El.voting.answersScroll.appendChild(row);
+    }
+  },
+
+  // UiState-driven for open/close, but content is plain GameState data —
+  // rebuilt unconditionally every call (cheap, no contenteditable here to
+  // worry about stealing focus from) so it's never stale whenever it next
+  // gets opened, regardless of what triggered this call.
+  overlay() {
+    El.overlay.root.classList.toggle("open", UiState.overlayOpen);
+    El.overlay.backdrop.classList.toggle("open", UiState.overlayOpen);
+
+    El.overlay.myPubkey.textContent = GameState.myPubkeyHex || "unavailable";
+
+    El.overlay.meshPeerCount.textContent = String(GameState.peers.size);
+    El.overlay.meshPeerList.innerHTML = "";
+    if (GameState.peers.size === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hint";
+      empty.textContent = "No peers connected";
+      El.overlay.meshPeerList.appendChild(empty);
+    } else {
+      for (const [pubkeyHex, peer] of GameState.peers.entries()) {
+        const row = document.createElement("div");
+        row.className = "mesh-peer-row";
+
+        const dot = document.createElement("span");
+        dot.className = "pulse-dot";
+        row.appendChild(dot);
+
+        const name = document.createElement("div");
+        if (peer.username) {
+          name.className = "mesh-peer-name";
+          name.textContent = peer.username; // peer-supplied — textContent only
+        } else {
+          name.className = "mesh-peer-name unknown";
+          name.textContent = `${pubkeyHex.slice(0, 6)}…${pubkeyHex.slice(-4)} (no username yet)`;
+        }
+        row.appendChild(name);
+
+        El.overlay.meshPeerList.appendChild(row);
+      }
+    }
+  },
+
+  // UiState-driven, NOT called from dispatch. Toggles which row's pill
+  // list is open (accordion — only one at a time) and refreshes which
+  // pill(s) are highlighted, since a value change needs the highlight to
+  // move/update even while the list stays open.
+  configOptions() {
+    for (const row of CONFIG_DROPDOWN_ROWS) {
+      const isOpen = UiState.configMenuOpen === row.key;
+      El.menu.cfgOptions[row.key].classList.toggle("open", isOpen);
+      El.menu.cfgChevs[row.key].textContent = isOpen ? "▾" : "▸";
+
+      for (const pill of El.menu.cfgOptions[row.key].children) {
+        const selected = row.multi
+          ? UiState.pendingConfig[row.key].has(pill.dataset.cfgValue) // letters: a Set of strings
+          : Number(pill.dataset.cfgValue) === UiState.pendingConfig[row.key]; // qType: single number
+        pill.classList.toggle("selected", selected);
+      }
+    }
+  },
+
+  // Current-value labels (letters summary, qType, duration, questionCount)
+  // and the two sliders' fill/thumb positions. Separate from configOptions
+  // above since these need refreshing on every pick/drag regardless of
+  // whether a dropdown happens to be open.
+  configWidgets() {
+    El.menu.cfgLetter.textContent = summarizeLetters(UiState.pendingConfig.letters);
+    El.menu.cfgType.textContent = String(UiState.pendingConfig.qType);
+
+    for (const slider of CONFIG_SLIDERS) {
+      const value = UiState.pendingConfig[slider.key];
+      const ratio = (value - slider.min) / (slider.max - slider.min);
+      El.menu.sliderFill[slider.key].style.width = `${ratio * 100}%`;
+      El.menu.sliderThumb[slider.key].style.left = `${ratio * 100}%`;
+      El.menu.sliderValue[slider.key].textContent = `${value}${slider.suffix}`;
+    }
+  },
+};
+
+// ============================================================
+// DELEGATED LISTENERS — attached once, to stable containers,
+// never re-bound when dynamic content is rebuilt.
+// ============================================================
+function wireDelegatedListeners() {
+  El.menu.playerList.addEventListener("click", (e) => {
+    const row = e.target.closest(".player-row");
+    if (!row) return;
+    if (row.dataset.self === "true") {
+      UiState.overlayOpen = true;
+      Render.overlay();
+      // TODO: focus El.overlay.usernameInput after the open transition
+    }
+  });
+
+  // Submission (and the validity check that comes with it) happens ONLY on
+  // deselection — no mid-typing broadcast. The input box's own live text is
+  // already the source of truth for what you're seeing while typing; there's
+  // nothing to render there until you commit by leaving the field.
+  El.answering.questionsScroll.addEventListener(
+    "focusin",
+    (e) => {
+      const box = e.target.closest(".q-input");
+      if (!box) return;
+      // Clear any indicator from a previous submission — it described OLD
+      // text, and showing it while you're actively changing that text
+      // would be misleading.
+      box.classList.remove("valid", "invalid");
+    },
+    true
+  );
+  El.answering.questionsScroll.addEventListener(
+    "focusout",
+    (e) => {
+      const box = e.target.closest(".q-input");
+      if (!box) return;
+      const questionIndex = Number(box.dataset.questionIndex);
+      const text = box.textContent;
+
+      const valid = isValidAnswer(
+        text,
+        GameState.config.letter,
+        GameState.config.questions[questionIndex],
+        GameState.config.qType
+      );
+      box.classList.toggle("valid", valid);
+      box.classList.toggle("invalid", !valid && text.trim().length > 0);
+
+      Actions.submitWord(questionIndex, text);
+    },
+    true
+  );
+
+  El.voting.answersScroll.addEventListener("click", (e) => {
+    const btn = e.target.closest(".vote-btn");
+    if (!btn) return;
+    const row = e.target.closest(".answer");
+    Actions.castVote(
+      Number(row.dataset.questionIndex),
+      row.dataset.ownerPubkey,
+      Number(btn.dataset.value)
+    );
+  });
+}
+
+// ============================================================
+// STATIC LISTENERS — attached once, at init, to elements that
+// are never destroyed/recreated.
+// ============================================================
+function wireStaticListeners() {
+  El.menu.gearBtn.addEventListener("click", () => { UiState.overlayOpen = true; Render.overlay(); });
+  El.menu.peerPill.addEventListener("click", () => { UiState.overlayOpen = true; Render.overlay(); });
+  El.overlay.backBtn.addEventListener("click", () => { UiState.overlayOpen = false; Render.overlay(); });
+  El.overlay.backdrop.addEventListener("click", () => { UiState.overlayOpen = false; Render.overlay(); });
+
+  El.menu.startBtn.addEventListener("click", () => {
+    // Same source Render.menu displays — tapping a config row to actually
+    // change these values isn't built yet, but at least Start and the
+    // display can no longer silently disagree with each other.
+    Actions.startGame(UiState.pendingConfig);
+  });
+  El.menu.resetBtn.addEventListener("click", () => Actions.reset());
+
+  for (const row of CONFIG_DROPDOWN_ROWS) {
+    El.menu.cfgRows[row.key].addEventListener("click", () => {
+      UiState.configMenuOpen = UiState.configMenuOpen === row.key ? null : row.key; // accordion — tap again to close
+      Render.configOptions();
+    });
+    // One delegated listener per options container rather than one per
+    // pill — there's no rebuild here to worry about, this just saves
+    // binding up to 27 individual listeners for the Letter row.
+    El.menu.cfgOptions[row.key].addEventListener("click", (e) => {
+      const pill = e.target.closest(".cfg-option");
+      if (!pill) return;
+      const raw = pill.dataset.cfgValue;
+
+      if (row.multi) {
+        // Letters: toggle membership, stay open (picking several in one
+        // session is the whole point), and never allow emptying to zero —
+        // there'd be nothing left to randomly choose from at Start.
+        const letters = UiState.pendingConfig.letters;
+        if (letters.has(raw)) {
+          if (letters.size > 1) letters.delete(raw);
+        } else {
+          letters.add(raw);
+        }
+      } else {
+        UiState.pendingConfig[row.key] = Number(raw);
+        UiState.configMenuOpen = null; // single-select closes after picking
+      }
+      Render.configOptions();
+      Render.menu(GameState); // refresh the displayed current-value spans
+    });
+  }
+  wireSliders();
+
+  El.answering.restartBtn.addEventListener("click", () => {
+    Actions.restart(GameState.participants);
+  });
+  El.voting.nextBtn.addEventListener("click", () => Actions.next());
+
+  El.overlay.saveUsernameBtn.addEventListener("click", async () => {
+    const name = El.overlay.usernameInput.value.trim();
+    if (!name) return;
+
+    try {
+      await Actions.saveUsername(name);
+      El.overlay.usernameInput.value = name;
+      console.info(`[RBW] Saved username: ${name}`);
+      Render.menu(GameState);
+      Render.overlay();
+    } catch (error) {
+      console.error("[RBW] Couldn't save username", error);
+      alert(`Couldn't save username: ${error?.message || error}`);
+    }
+  });
+  El.overlay.addPeerBtn.addEventListener("click", () => {
+    const pk = El.overlay.peerInput.value.trim();
+    if (pk) Actions.addPeer(pk);
+  });
+  El.overlay.copyBtn.addEventListener("click", async () => {
+    const pubkey = GameState.myPubkeyHex || "";
+    if (!pubkey) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(pubkey);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = pubkey;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      // No log panel to confirm this happened, so a transient label swap
+      // is the only feedback the person gets — same idea as the "tap to
+      // rename" hint, just momentary instead of persistent.
+      const original = El.overlay.copyBtn.textContent;
+      El.overlay.copyBtn.textContent = "Copied";
+      El.overlay.copyBtn.disabled = true;
+      setTimeout(() => {
+        El.overlay.copyBtn.textContent = original;
+        El.overlay.copyBtn.disabled = false;
+      }, 1200);
+    } catch (e) {
+      // TODO: surface a failure indicator; no log panel by design means
+      // this fails silently for now.
+    }
+  });
+}
+
+// ============================================================
+// CORALIE HOST EVENT HANDLING
+// ============================================================
+
+// Username identity is announced only for two events:
+//   1. the local username changes; or
+//   2. a previously unseen peer appears in the peer snapshot.
+// No timed repeats or reciprocal replies are used.
+async function announceUsernameToPeer(pubkeyHex) {
+  const name = String(GameState.myUsername || "").trim();
+  if (!name || !coralieHost || !GameState.peers.has(pubkeyHex)) return;
+
+  try {
+    await Bridge.sendTo(
+      pubkeyHex,
+      new UsernameMessage({ name, ts: Date.now() }),
+    );
+  } catch (error) {
+    console.warn(
+      `[RBW] Couldn't announce username to ${pubkeyHex}:`,
+      error,
+    );
+  }
+}
+
+function announceUsernameToAllPeers() {
+  for (const pubkeyHex of GameState.peers.keys()) {
+    void announceUsernameToPeer(pubkeyHex);
+  }
+}
+
+// Shared by onPeers() and init()'s initial getPeers() call. The portable
+// contract returns MeshPeer objects; accepting strings as well keeps this
+// page tolerant of an older Android bridge during staged deployments.
+function reconcilePeers(peerList) {
+  const incoming = new Set(
+    (peerList || [])
+      .map((peer) => typeof peer === "string" ? peer : peer?.pubkeyHex)
+      .filter(Boolean)
+      .map((pubkeyHex) => String(pubkeyHex).toLowerCase())
+  );
+
+  for (const pk of incoming) {
+    if (!GameState.peers.has(pk)) {
+      GameState.peers.set(pk, {});
+      void announceUsernameToPeer(pk);
+    }
+  }
+  for (const pk of [...GameState.peers.keys()]) {
+    if (!incoming.has(pk)) {
+      GameState.peers.delete(pk);
+    }
+  }
+
+  // Zero peers while a game is in progress means there's nobody left to
+  // converge with, for any reason. Return to the menu rather than leaving
+  // the local player stranded in an unrecoverable game state.
+  if (GameState.peers.size === 0 && GameState.phase !== "menu") {
+    resetToMenu(GameState);
+  }
+}
+
+function handlePeerMessage(data) {
+  let raw;
+  try {
+    raw = JSON.parse(Bridge.decode(data.payload));
+  } catch {
+    return; // unreadable payload, drop silently (no log panel per design)
+  }
+
+  const msg = decodeMessage(raw);
+  if (!msg) return;
+
+  dispatch(msg, { origin: "remote", from: data.fromPubkeyHex });
+}
+
+function subscribeToCoralie() {
+  coralieUnsubscribers.push(
+    subscribeCoralie("peers", (peerList) => {
+      reconcilePeers(peerList);
+      Render.draw(GameState);
+    }, normalizePeers),
+    subscribeCoralie("message", handlePeerMessage, normalizeMessage),
+    subscribeCoralie("terminalFailure", () => {
+      // TODO: surface a toast; not a dispatch-worthy event
+    }, normalizeTerminalFailure),
+  );
+}
+
+// ============================================================
+// INIT — the single bootstrap sequence.
+// ============================================================
+async function init() {
+  const Boot = window.__CoralieBoot;
+
+  Boot?.stage("Caching interface elements…");
+  cacheEl();
+
+  Boot?.stage("Building configuration controls…");
+  buildConfigOptions();
+  Render.configOptions();
+  Render.configWidgets();
+
+  Boot?.stage("Attaching interface listeners…");
+  wireStaticListeners();
+  wireDelegatedListeners();
+
+  Boot?.stage("Connecting to Coralie host…");
+  coralieHost = requireCoralieHost();
+
+  Boot?.stage("Loading node identity…");
+  GameState.myPubkeyHex = await coralieHost.getPubkey();
+
+  Boot?.stage("Loading saved username…");
+  GameState.myUsername = await Storage.get("username");
+  if (GameState.myUsername) {
+    El.overlay.usernameInput.value = GameState.myUsername;
+    console.info(`[RBW] Restored username: ${GameState.myUsername}`);
+  } else {
+    console.info("[RBW] No saved username found");
+  }
+
+  // Subscribe before taking the snapshot so a peer connection cannot be
+  // missed in the gap between reading getPeersJson() and attaching listeners.
+  Boot?.stage("Subscribing to mesh events…");
+  subscribeToCoralie();
+
+  Boot?.stage("Loading connected peers…");
+  const initialPeers = await getPeerSnapshot();
+  reconcilePeers(initialPeers);
+
+  Boot?.stage("Rendering menu…");
+  Render.draw(GameState);
+  Boot?.ready();
+}
+
+window.addEventListener("pagehide", (event) => {
+  if (event.persisted) return; // retain subscriptions when restored from bfcache
+  while (coralieUnsubscribers.length) {
+    try { coralieUnsubscribers.pop()(); } catch {}
+  }
+
+  if (coralieHost && String(coralieHost.hostKind()) === "browser") {
+    void Promise.resolve(coralieHost.close()).catch((error) => {
+      console.error("[RBW] Failed to close browser Coralie host", error);
+    });
+  }
+});
+
+// ============================================================
+// BOOTSTRAP
+// ============================================================
+init().catch((error) => {
+  console.error("[Really Boring Website] initialization failed", error);
+  window.__CoralieBoot?.error(error, "Really Boring Website failed to start");
+});
+</script>
+</body>
+</html>

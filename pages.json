@@ -1,0 +1,27 @@
+[
+  {
+    "id": "rbw",
+    "title": "Really Boring Website",
+    "description": "A multiplayer word game using the Coralie mesh, portable storage, and HTTP API.",
+    "file": "rbw.html",
+    "build": "rbw-coralie-v2",
+    "capabilities": [
+      "mesh",
+      "storage",
+      "http"
+    ],
+    "category": "Game"
+  },
+  {
+    "id": "room",
+    "title": "Debug Room",
+    "description": "A small diagnostics page for connecting peers, inspecting the mesh, and testing messages.",
+    "file": "room.html",
+    "build": "debug-room-coralie-v2",
+    "capabilities": [
+      "mesh",
+      "storage"
+    ],
+    "category": "Utility"
+  }
+]

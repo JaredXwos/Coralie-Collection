@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browse, open, and download Coralie pages." />
+  <title>Coralie Page Library</title>
+  <style>
+    :root {
+      --bg: #0b1620;
+      --panel: #0f1e28;
+      --panel-2: #142934;
+      --input-bg: #0d1a23;
+      --border: #22323f;
+      --text: #dce8ed;
+      --text-muted: #8aa0ab;
+      --text-faint: #58707b;
+      --accent: #4fd1b5;
+      --accent-dim: #193a36;
+      --warn: #e2725b;
+      --shadow: 0 18px 55px rgba(0, 0, 0, 0.24);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% -10%, rgba(79, 209, 181, 0.12), transparent 34rem),
+        var(--bg);
+      font-family: var(--font-sans);
+    }
+
+    a { color: inherit; }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 58px 0 72px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      margin-bottom: 10px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 6vw, 58px);
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+
+    .intro {
+      max-width: 650px;
+      margin: 16px 0 0;
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+
+    .library-count {
+      align-self: start;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(20, 41, 52, 0.72);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1 1 auto;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      top: 50%;
+      left: 14px;
+      width: 18px;
+      height: 18px;
+      transform: translateY(-50%);
+      color: var(--text-faint);
+      pointer-events: none;
+    }
+
+    #search {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(13, 26, 35, 0.86);
+      color: var(--text);
+      padding: 13px 14px 13px 42px;
+      font: inherit;
+    }
+
+    #search:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    #search::placeholder { color: var(--text-faint); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(20, 41, 52, 0.9), rgba(15, 30, 40, 0.94));
+      box-shadow: var(--shadow);
+    }
+
+    .card-top {
+      display: flex;
+      min-height: 105px;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      background:
+        linear-gradient(135deg, rgba(79, 209, 181, 0.10), transparent 55%);
+    }
+
+    .page-mark {
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid rgba(79, 209, 181, 0.48);
+      border-radius: 13px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .category {
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .card-body {
+      display: flex;
+      flex: 1 1 auto;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.25;
+    }
+
+    .description {
+      margin: 10px 0 16px;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 22px;
+    }
+
+    .tag {
+      padding: 4px 7px;
+      border-radius: 7px;
+      background: var(--input-bg);
+      color: var(--text-faint);
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: auto;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .button:hover { border-color: var(--text-faint); }
+
+    .button.primary {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .button svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .empty, .error {
+      grid-column: 1 / -1;
+      padding: 34px;
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    footer {
+      margin-top: 34px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-faint);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    code {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    @media (max-width: 680px) {
+      .shell { padding-top: 34px; }
+      header { grid-template-columns: 1fr; }
+      .library-count { justify-self: start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">Coralie</div>
+        <h1>Page Library</h1>
+        <p class="intro">
+          Browse pages that run on the Coralie host. Open a page directly or
+          download its standalone HTML source.
+        </p>
+      </div>
+      <div class="library-count" id="library-count">Loading…</div>
+    </header>
+
+    <div class="toolbar">
+      <label class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="m21 20.3-5.5-5.5a7.5 7.5 0 1 0-.7.7l5.5 5.5.7-.7ZM4.5 10a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0Z"/>
+        </svg>
+        <input id="search" type="search" placeholder="Search pages or capabilities" autocomplete="off" />
+      </label>
+    </div>
+
+    <section class="grid" id="page-grid" aria-live="polite">
+      <div class="empty">Loading page catalogue…</div>
+    </section>
+
+    <footer>
+      Pages are served from this GitHub Pages site. Downloaded HTML files still
+      expect the Coralie host at <code>./Coralie/v2/host.js</code> when opened
+      from a compatible web deployment.
+    </footer>
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const fallbackPages = [
+      {
+        id: "rbw",
+        title: "Really Boring Website",
+        description: "A multiplayer word game using the Coralie mesh, portable storage, and HTTP API.",
+        file: "rbw.html",
+        build: "rbw-coralie-v2",
+        capabilities: ["mesh", "storage", "http"],
+        category: "Game"
+      },
+      {
+        id: "room",
+        title: "Debug Room",
+        description: "A small diagnostics page for connecting peers, inspecting the mesh, and testing messages.",
+        file: "room.html",
+        build: "debug-room-coralie-v2",
+        capabilities: ["mesh", "storage"],
+        category: "Utility"
+      }
+    ];
+
+    const grid = document.getElementById("page-grid");
+    const search = document.getElementById("search");
+    const count = document.getElementById("library-count");
+    let pages = [];
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function pageInitials(title) {
+      return title
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+    }
+
+    function pageMatches(page, term) {
+      if (!term) return true;
+      const haystack = [
+        page.title,
+        page.description,
+        page.category,
+        page.build,
+        ...(page.capabilities || [])
+      ].join(" ").toLowerCase();
+      return haystack.includes(term);
+    }
+
+    function cardTemplate(page) {
+      const capabilities = (page.capabilities || [])
+        .map((capability) => `<span class="tag">${escapeHtml(capability)}</span>`)
+        .join("");
+
+      return `
+        <article class="card">
+          <div class="card-top">
+            <div class="page-mark" aria-hidden="true">${escapeHtml(pageInitials(page.title))}</div>
+            <span class="category">${escapeHtml(page.category || "Page")}</span>
+          </div>
+          <div class="card-body">
+            <h2>${escapeHtml(page.title)}</h2>
+            <p class="description">${escapeHtml(page.description || "")}</p>
+            <div class="meta">
+              ${capabilities}
+              <span class="tag">${escapeHtml(page.build || "Coralie v2")}</span>
+            </div>
+            <div class="actions">
+              <a class="button primary" href="${encodeURI(page.file)}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M12 5c5.5 0 9.6 5.4 9.8 5.6a2.2 2.2 0 0 1 0 2.8C21.6 13.6 17.5 19 12 19S2.4 13.6 2.2 13.4a2.2 2.2 0 0 1 0-2.8C2.4 10.4 6.5 5 12 5Zm0 2c-4.3 0-7.8 4.1-8.2 5 .4.9 3.9 5 8.2 5s7.8-4.1 8.2-5c-.4-.9-3.9-5-8.2-5Zm0 2.5A2.5 2.5 0 1 1 12 14.5 2.5 2.5 0 0 1 12 9.5Z"/>
+                </svg>
+                Open page
+              </a>
+              <button class="button download-button" type="button" data-file="${escapeHtml(page.file)}">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M11 3h2v10.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6V3ZM5 19h14v2H5v-2Z"/>
+                </svg>
+                Download HTML
+              </button>
+            </div>
+          </div>
+        </article>`;
+    }
+
+    function render() {
+      const term = search.value.trim().toLowerCase();
+      const filtered = pages.filter((page) => pageMatches(page, term));
+
+      count.textContent = `${pages.length} ${pages.length === 1 ? "page" : "pages"}`;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty">No pages match that search.</div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(cardTemplate).join("");
+    }
+
+    async function downloadHtml(file) {
+      const response = await fetch(file, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Download failed with HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = file.split("/").pop() || "page.html";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    grid.addEventListener("click", async function (event) {
+      const button = event.target.closest(".download-button");
+      if (!button) return;
+
+      const originalText = button.innerHTML;
+      button.disabled = true;
+      button.textContent = "Preparing…";
+
+      try {
+        await downloadHtml(button.dataset.file);
+      } catch (error) {
+        console.error(error);
+        window.location.href = button.dataset.file;
+      } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+      }
+    });
+
+    search.addEventListener("input", render);
+
+    async function initialise() {
+      try {
+        const response = await fetch("./pages.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const parsed = await response.json();
+        if (!Array.isArray(parsed)) throw new TypeError("pages.json must contain an array");
+        pages = parsed;
+      } catch (error) {
+        console.warn("Using built-in page catalogue:", error);
+        pages = fallbackPages;
+      }
+
+      render();
+    }
+
+    void initialise();
+  })();
+  </script>
+</body>
+</html>

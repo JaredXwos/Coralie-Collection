@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="coralie-page-build" content="debug-room-coralie-v2">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Debug Room</title>
+<!-- Coralie Android capabilities: mesh, storage -->
+<!-- Coralie host bootstrap: /Coralie/v2/host.js -->
+<style>
+  :root {
+    --bg: #0b1620;
+    --panel: #0f1e28;
+    --panel-2: #14293489;
+    --input-bg: #0d1a23;
+    --border: #22323f;
+    --text: #dce8ed;
+    --text-muted: #7c93a0;
+    --text-faint: #4d616c;
+    --accent: #4fd1b5;
+    --accent-dim: #2c4d47;
+    --warn: #e2725b;
+    --warn-dim: #4a2e28;
+    --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+
+  section {
+    flex: 0 0 auto;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section.grow {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-bottom: none;
+  }
+
+  h2 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+
+  /* --- identity --- */
+  .identity-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: 0 0 auto;
+  }
+  .pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0.6;
+    animation: pulse 2.2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { transform: scale(0.4); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot::after { animation: none; opacity: 0; }
+  }
+
+  #my-pubkey {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  button {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  button:active { transform: translateY(1px); }
+  button.primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+
+  input[type="text"] {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  input[type="text"].sans { font-family: var(--font-sans); }
+  input[type="text"]:focus, button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  input::placeholder { color: var(--text-faint); }
+
+  .row { display: flex; gap: 8px; align-items: center; }
+
+  .hint {
+    font-size: 11px;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+
+  /* --- peers --- */
+  #peer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .peer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .peer-row .pulse-dot { width: 6px; height: 6px; }
+  .peer-name {
+    font-size: 13px;
+    color: var(--text);
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .peer-name.unknown {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-style: normal;
+  }
+  .peer-key {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .empty {
+    color: var(--text-faint);
+    font-size: 13px;
+    padding: 10px 2px;
+  }
+
+  /* --- log --- */
+  #log {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .log-line { white-space: pre-wrap; word-break: break-word; }
+  .log-info  { color: var(--text-muted); }
+  .log-event { color: var(--accent); }
+  .log-error { color: var(--warn); }
+  .log-time  { color: var(--text-faint); }
+</style>
+</head>
+<body>
+
+  <section>
+    <div class="eyebrow">Coralie · Debug Room</div>
+    <h2 style="margin-top:6px;">My node</h2>
+    <div class="identity-row">
+      <span class="pulse-dot"></span>
+      <div id="my-pubkey">loading…</div>
+      <button id="copy-pubkey-btn">Copy</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Username</h2>
+    <div class="row">
+      <input type="text" class="sans" id="username-input" placeholder="Your name" maxlength="40" />
+      <button class="primary" id="save-username-btn">Save</button>
+    </div>
+    <div class="hint">Stored on this device and shared with peers you're connected to.</div>
+  </section>
+
+  <section>
+    <h2>Add peer</h2>
+    <div class="row">
+      <input type="text" id="peer-input" placeholder="Paste a public key" />
+      <button class="primary" id="add-peer-btn">Add</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Peers <span class="badge" id="peer-count">0</span></h2>
+    <div id="peer-list">
+      <div class="empty">No peers connected</div>
+    </div>
+  </section>
+
+  <section class="grow">
+    <h2>Log</h2>
+    <div id="log"></div>
+  </section>
+
+<script src="./Coralie/v2/host.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---- state ----
+  let coralie = null;
+  let myPubkeyHex = null;
+  let myUsername = null;
+  const peers = new Map(); // pubkeyHex -> username|null
+  const unsubscribers = [];
+
+  // ---- dom refs ----
+  const el = {
+    myPubkey: document.getElementById("my-pubkey"),
+    copyBtn: document.getElementById("copy-pubkey-btn"),
+    usernameInput: document.getElementById("username-input"),
+    saveUsernameBtn: document.getElementById("save-username-btn"),
+    peerInput: document.getElementById("peer-input"),
+    addPeerBtn: document.getElementById("add-peer-btn"),
+    peerList: document.getElementById("peer-list"),
+    peerCount: document.getElementById("peer-count"),
+    log: document.getElementById("log"),
+  };
+
+  // ---- log panel ----
+  const MAX_LOG_LINES = 300;
+
+  function log(level, message) {
+    const time = new Date().toLocaleTimeString([], { hour12: false });
+    const line = document.createElement("div");
+    line.className = "log-line log-" + level;
+    line.textContent = "[" + time + "] " + message;
+    el.log.appendChild(line);
+
+    while (el.log.childElementCount > MAX_LOG_LINES) {
+      el.log.removeChild(el.log.firstChild);
+    }
+
+    el.log.scrollTop = el.log.scrollHeight;
+  }
+
+  function shortKey(pubkeyHex) {
+    if (!pubkeyHex || pubkeyHex.length <= 14) return pubkeyHex || "";
+    return pubkeyHex.slice(0, 7) + "…" + pubkeyHex.slice(-6);
+  }
+
+  function describeError(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  function requireCoralieHost() {
+    const host = window.Coralie;
+    const requiredMethods = [
+      "apiVersion",
+      "hostKind",
+      "getPubkey",
+      "addPeer",
+      "sendMessage",
+      "getPeersJson",
+      "reset",
+      "close",
+      "storageGetItem",
+      "storageSetItem",
+      "storageRemoveItem",
+    ];
+
+    if (!host) {
+      throw new Error("window.Coralie is unavailable");
+    }
+
+    for (const method of requiredMethods) {
+      if (typeof host[method] !== "function") {
+        throw new Error(
+          "window.Coralie is missing API v2 method: " + method
+        );
+      }
+    }
+
+    if (Number(host.apiVersion()) !== 2) {
+      throw new Error(
+        "Unsupported Coralie API version: " + String(host.apiVersion())
+      );
+    }
+
+    return host;
+  }
+
+  function normalizePeers(value) {
+    return (Array.isArray(value) ? value : [])
+      .map((peer) => {
+        if (typeof peer === "string") {
+          return { pubkeyHex: peer.toLowerCase(), connectedAt: null };
+        }
+        if (!peer || typeof peer.pubkeyHex !== "string") return null;
+        return {
+          pubkeyHex: peer.pubkeyHex.toLowerCase(),
+          connectedAt: peer.connectedAt ?? null,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function normalizeMessage(value) {
+    return {
+      fromPubkeyHex: String(value?.fromPubkeyHex || "").toLowerCase(),
+      toPubkeyHex: String(value?.toPubkeyHex || "").toLowerCase(),
+      timestamp: Number(value?.timestamp || Date.now()),
+      payload: value?.payload instanceof Uint8Array
+        ? value.payload
+        : Uint8Array.from(value?.payload || []),
+    };
+  }
+
+  function normalizeTerminalFailure(value) {
+    return {
+      pubkeyHex: String(value?.pubkeyHex || "").toLowerCase(),
+      attemptCount: Number(value?.attemptCount || 0),
+      reason: value?.reason == null ? null : String(value.reason),
+    };
+  }
+
+  function subscribeCoralie(type, listener, normalize) {
+    const eventName = "coralie:" + type;
+    const handler = (event) => listener(normalize(event.detail));
+    window.addEventListener(eventName, handler);
+    return () => window.removeEventListener(eventName, handler);
+  }
+
+  async function getPeerSnapshot() {
+    const encoded = await coralie.getPeersJson();
+    return normalizePeers(JSON.parse(String(encoded || "[]")));
+  }
+
+  // ---- byte helpers ----
+  const textEncoder = new TextEncoder();
+  const textDecoder = new TextDecoder();
+
+  function encodeUsernameAnnouncement(name) {
+    return textEncoder.encode(
+      JSON.stringify({
+        type: "username",
+        name: name,
+        ts: Date.now(),
+      })
+    );
+  }
+
+  function decodeApplicationMessage(payload) {
+    if (!(payload instanceof Uint8Array)) {
+      throw new TypeError("Message payload is not a Uint8Array");
+    }
+
+    return JSON.parse(textDecoder.decode(payload));
+  }
+
+  // ---- peer username protocol ----
+  // Username identity is announced only for two events:
+  //   1. the local username changes; or
+  //   2. a previously unseen peer appears in the peer snapshot.
+  // No timed repeats or reciprocal replies are used.
+  async function announceUsernameTo(pubkeyHex) {
+    const name = String(myUsername || "").trim();
+    if (!name || !coralie || !peers.has(pubkeyHex)) return;
+
+    try {
+      await coralie.sendMessage(
+        pubkeyHex,
+        encodeUsernameAnnouncement(name)
+      );
+
+      log(
+        "info",
+        "Announced username to " +
+          shortKey(pubkeyHex) +
+          ": " +
+          name
+      );
+    } catch (error) {
+      log(
+        "error",
+        "Couldn't send username to " +
+          shortKey(pubkeyHex) +
+          ": " +
+          describeError(error)
+      );
+    }
+  }
+
+  function announceUsernameToAllPeers() {
+    for (const pubkeyHex of peers.keys()) {
+      void announceUsernameTo(pubkeyHex);
+    }
+  }
+
+  // ---- rendering ----
+  function renderPeers() {
+    el.peerCount.textContent = String(peers.size);
+    el.peerList.innerHTML = "";
+
+    if (peers.size === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No peers connected";
+      el.peerList.appendChild(empty);
+      return;
+    }
+
+    for (const [pubkeyHex, username] of peers.entries()) {
+      const row = document.createElement("div");
+      row.className = "peer-row";
+
+      const dot = document.createElement("span");
+      dot.className = "pulse-dot";
+
+      const label = document.createElement("span");
+
+      if (username) {
+        label.className = "peer-name";
+        label.textContent = username;
+      } else {
+        label.className = "peer-name unknown";
+        label.textContent = shortKey(pubkeyHex) + " (no username yet)";
+      }
+
+      label.title = pubkeyHex;
+      row.appendChild(dot);
+      row.appendChild(label);
+      el.peerList.appendChild(row);
+    }
+  }
+
+  // ---- CoralieHost event handling ----
+  function handlePeersEvent(peerList) {
+    if (!Array.isArray(peerList)) {
+      log("error", "Invalid peers event: expected an array");
+      return;
+    }
+
+    const incoming = new Set();
+
+    for (const peer of peerList) {
+      if (!peer || typeof peer.pubkeyHex !== "string") {
+        continue;
+      }
+
+      incoming.add(peer.pubkeyHex);
+
+      if (!peers.has(peer.pubkeyHex)) {
+        peers.set(peer.pubkeyHex, null);
+        log("event", "✓ NEW PEER: " + shortKey(peer.pubkeyHex));
+        void announceUsernameTo(peer.pubkeyHex);
+      }
+    }
+
+    for (const pubkeyHex of Array.from(peers.keys())) {
+      if (!incoming.has(pubkeyHex)) {
+        peers.delete(pubkeyHex);
+        log("event", "✗ PEER DISCONNECTED: " + shortKey(pubkeyHex));
+      }
+    }
+
+    renderPeers();
+  }
+
+  function handleMessageEvent(message) {
+    if (
+      !message ||
+      typeof message.fromPubkeyHex !== "string" ||
+      !(message.payload instanceof Uint8Array)
+    ) {
+      log("error", "Malformed message event");
+      return;
+    }
+
+    let decoded;
+
+    try {
+      decoded = decodeApplicationMessage(message.payload);
+    } catch (error) {
+      log(
+        "error",
+        "Couldn't decode message from " +
+          shortKey(message.fromPubkeyHex) +
+          ": " +
+          describeError(error)
+      );
+      return;
+    }
+
+    if (
+      decoded &&
+      decoded.type === "username" &&
+      typeof decoded.name === "string"
+    ) {
+      peers.set(message.fromPubkeyHex, decoded.name);
+      log(
+        "event",
+        shortKey(message.fromPubkeyHex) + " → " + decoded.name
+      );
+      renderPeers();
+      return;
+    }
+
+    log(
+      "info",
+      "Message from " +
+        shortKey(message.fromPubkeyHex) +
+        " (type: " +
+        (decoded && decoded.type ? decoded.type : "unknown") +
+        ")"
+    );
+  }
+
+  function handleTerminalFailureEvent(failure) {
+    if (!failure || typeof failure.pubkeyHex !== "string") {
+      log("error", "Malformed terminal-failure event");
+      return;
+    }
+
+    log("error", "Connection failed: " + shortKey(failure.pubkeyHex));
+    log("error", "Attempts: " + String(failure.attemptCount));
+
+    if (failure.reason) {
+      log("error", "Reason: " + failure.reason);
+    }
+  }
+
+  // ---- identity ----
+  async function copyPubkey() {
+    if (!myPubkeyHex) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(myPubkeyHex);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = myPubkeyHex;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+
+      log("info", "Public key copied");
+    } catch (error) {
+      log("error", "Copy failed: " + describeError(error));
+    }
+  }
+
+  // ---- portable storage ----
+  const RoomStorage = {
+    async get(name) {
+      if (!coralie) throw new Error("Coralie host is not initialized");
+      return await coralie.storageGetItem(String(name));
+    },
+
+    async set(name, value) {
+      if (!coralie) throw new Error("Coralie host is not initialized");
+      await coralie.storageSetItem(String(name), String(value));
+    },
+  };
+
+  // ---- username ----
+  async function loadUsername() {
+    const value = await RoomStorage.get("username");
+    myUsername = value || null;
+    el.usernameInput.value = value || "";
+  }
+
+  async function saveUsername() {
+    const name = el.usernameInput.value.trim();
+    if (!name) return;
+
+    el.saveUsernameBtn.disabled = true;
+
+    try {
+      const previousName = String(myUsername || "").trim();
+      await RoomStorage.set("username", name);
+      myUsername = name;
+      log("info", "Username saved: " + name);
+
+      // Announce only when the local username actually changes.
+      if (name !== previousName) {
+        announceUsernameToAllPeers();
+      }
+    } catch (error) {
+      log("error", "Couldn't save username: " + describeError(error));
+    } finally {
+      el.saveUsernameBtn.disabled = false;
+    }
+  }
+
+  // ---- add peer ----
+  async function addPeer() {
+    if (!coralie) {
+      log("error", "Coralie host is not initialized");
+      return;
+    }
+
+    const pubkeyHex = el.peerInput.value.trim();
+
+    if (!pubkeyHex) {
+      log("error", "Peer public key cannot be empty");
+      return;
+    }
+
+    if (pubkeyHex === myPubkeyHex) {
+      log("error", "Cannot add yourself as a peer");
+      return;
+    }
+
+    el.addPeerBtn.disabled = true;
+
+    try {
+      log("info", "Adding peer: " + shortKey(pubkeyHex));
+      await coralie.addPeer(pubkeyHex);
+      el.peerInput.value = "";
+      log("info", "Peer connection requested");
+    } catch (error) {
+      log("error", "Couldn't add peer: " + describeError(error));
+    } finally {
+      el.addPeerBtn.disabled = false;
+    }
+  }
+
+  // ---- lifecycle ----
+  async function initialise() {
+    log("info", "Coralie Room initialized");
+
+    try {
+      coralie = requireCoralieHost();
+      await loadUsername();
+      myPubkeyHex = await coralie.getPubkey();
+      el.myPubkey.textContent = myPubkeyHex;
+
+      unsubscribers.push(
+        subscribeCoralie("peers", handlePeersEvent, normalizePeers),
+        subscribeCoralie("message", handleMessageEvent, normalizeMessage),
+        subscribeCoralie(
+          "terminalFailure",
+          handleTerminalFailureEvent,
+          normalizeTerminalFailure
+        )
+      );
+
+      // Events are not guaranteed to replay, so initialize from the explicit
+      // API-v2 snapshot after the listeners are attached.
+      handlePeersEvent(await getPeerSnapshot());
+
+      log("info", "Public key: " + shortKey(myPubkeyHex));
+      log("info", "Coralie host ready");
+    } catch (error) {
+      el.myPubkey.textContent = "unavailable";
+      el.addPeerBtn.disabled = true;
+      log("error", "Couldn't initialize Coralie: " + describeError(error));
+    }
+  }
+
+  function cleanup() {
+    while (unsubscribers.length > 0) {
+      const unsubscribe = unsubscribers.pop();
+
+      try {
+        unsubscribe();
+      } catch {
+        // Ignore cleanup failures.
+      }
+    }
+
+    if (coralie) {
+      void Promise.resolve(coralie.close()).catch(function (error) {
+        console.error("Failed to close Coralie host:", error);
+      });
+    }
+  }
+
+  // ---- wiring ----
+  el.copyBtn.addEventListener("click", copyPubkey);
+  el.saveUsernameBtn.addEventListener("click", saveUsername);
+  el.usernameInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") saveUsername();
+  });
+  el.addPeerBtn.addEventListener("click", function () {
+    void addPeer();
+  });
+  el.peerInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") void addPeer();
+  });
+  window.addEventListener("pagehide", function (event) {
+    // A persisted page is entering the browser back-forward cache. Keep the
+    // Coralie host alive so the restored page does not retain UI backed by a
+    // closed connection manager.
+    if (event.persisted) return;
+    cleanup();
+  }, { once: true });
+
+  // ---- init ----
+  void initialise();
+})();
+</script>
+</body>
+</html>
