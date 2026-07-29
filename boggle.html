@@ -281807,6 +281807,7 @@ const lexicon = [
   const DURATION = 180000;
   const ARBITRATION = 1000;
   const START_LEAD = 500;
+  const RESULT_RETRY_MS = 1000;
   const MAX_SUBMISSIONS = 256;
   const PUBKEY = /^[0-9a-f]{64}$/;
 
@@ -281833,6 +281834,7 @@ const lexicon = [
       pendingCommonMessages: [],
       commonWords: new Set(),
       commonResponsesSent: new Set(),
+      resultAcknowledgedBy: new Set(),
     };
 
     let destroyed = false;
@@ -281847,6 +281849,7 @@ const lexicon = [
     let startHandle = null;
     let deadlineHandle = null;
     let tickHandle = null;
+    let resultRetryHandle = null;
     const completionPromises = new Map();
 
     const draw = () => {
@@ -281882,6 +281885,11 @@ const lexicon = [
       arbitrationHandle = startHandle = deadlineHandle = tickHandle = null;
     }
 
+    function clearResultRetry() {
+      if (resultRetryHandle !== null) timers.clearTimeout(resultRetryHandle);
+      resultRetryHandle = null;
+    }
+
     function tick() {
       if (!state.activeGame) return;
       state.timerNowMonoMs = clock.monotonicNow();
@@ -281903,6 +281911,7 @@ const lexicon = [
 
     function clearRound() {
       clearTimerHandles();
+      clearResultRetry();
       state.activeGame = null;
       state.submittedWords = [];
       state.localResult = null;
@@ -281910,10 +281919,12 @@ const lexicon = [
       state.pendingCommonMessages = [];
       state.commonWords = new Set();
       state.commonResponsesSent = new Set();
+      state.resultAcknowledgedBy = new Set();
     }
 
     function resetRoundForSelection() {
       clearTimerHandles();
+      clearResultRetry();
       state.gameGeneration += 1;
       state.submittedWords = [];
       state.localResult = null;
@@ -281921,6 +281932,7 @@ const lexicon = [
       state.pendingCommonMessages = [];
       state.commonWords = new Set();
       state.commonResponsesSent = new Set();
+      state.resultAcknowledgedBy = new Set();
     }
 
     async function requireSuccessfulSend(promise) {
@@ -282015,10 +282027,24 @@ const lexicon = [
       for (const entry of state.pendingCommonMessages) {
         const outcome = tryApplyCommon(entry);
         if (outcome === "pending") remaining.push(entry);
-        else changed = true;
+        else {
+          changed = true;
+          if (outcome === "applied") acknowledgeLocalResult(entry);
+        }
       }
       state.pendingCommonMessages = remaining;
       if (changed) draw();
+    }
+
+    function acknowledgeLocalResult(entry) {
+      const message = entry.message;
+      if (
+        !state.localResult ||
+        message.sourceResultSender !== state.myPubkeyHex ||
+        message.sourceResultDigest !== state.localResult.digest
+      ) return;
+      state.resultAcknowledgedBy.add(entry.from);
+      armResultRetry();
     }
 
     function dispatchCommon(message, from) {
@@ -282036,13 +282062,14 @@ const lexicon = [
           state.pendingCommonMessages.push(entry);
         }
       }
+      if (outcome === "applied") acknowledgeLocalResult(entry);
       if (outcome !== "drop") draw();
     }
 
-    async function sendCommonResponse(from, result) {
+    async function sendCommonResponse(from, result, forceDirect) {
       if (!state.localResult || !state.activeGame) return;
       const key = `${from}:${result.digest}`;
-      if (state.commonResponsesSent.has(key)) return;
+      if (!forceDirect && state.commonResponsesSent.has(key)) return;
       const local = new Set(state.localResult.correct);
       const words = result.words.filter((word) => local.has(word)).sort();
       const message = protocol.common({
@@ -282056,9 +282083,57 @@ const lexicon = [
       state.commonResponsesSent.add(key);
       draw();
       await reportSend(
-        port.sendToMany(connectedPeers(), message),
+        port.sendToMany(forceDirect ? [from] : connectedPeers(), message),
         "Could not send common-word response.",
       );
+    }
+
+    function pendingResultPeers() {
+      return connectedPeers().filter((key) => !state.resultAcknowledgedBy.has(key));
+    }
+
+    function localResultMessage() {
+      if (!state.localResult || !state.activeGame || state.activeGame.kind !== "multiplayer") {
+        return null;
+      }
+      return protocol.result({
+        gameId: state.activeGame.gameId,
+        words: [...new Set(state.localResult.correct)].sort(),
+        score: state.localResult.score,
+        digest: state.localResult.digest,
+        ts: nextProtocolTs(),
+      });
+    }
+
+    async function retryLocalResult() {
+      resultRetryHandle = null;
+      if (
+        destroyed ||
+        state.mode !== "multiplayer" ||
+        (state.phase !== "finishing" && state.phase !== "results")
+      ) return;
+      const peers = pendingResultPeers();
+      const message = peers.length ? localResultMessage() : null;
+      if (!message) return;
+      await reportSend(
+        port.sendToMany(peers, message),
+        "Could not send game result.",
+      );
+      armResultRetry();
+    }
+
+    function armResultRetry() {
+      clearResultRetry();
+      if (
+        destroyed ||
+        state.mode !== "multiplayer" ||
+        (state.phase !== "finishing" && state.phase !== "results") ||
+        !state.localResult ||
+        pendingResultPeers().length === 0
+      ) return;
+      resultRetryHandle = timers.setTimeout(() => {
+        void retryLocalResult();
+      }, RESULT_RETRY_MS);
     }
 
     async function dispatchResult(message, from) {
@@ -282079,7 +282154,19 @@ const lexicon = [
       }
       if (!sameGame("multiplayer", gameId, generation)) return;
       if (message.words.some((word) => !solutions.has(word))) return;
-      if (state.resultsByPeer.has(from)) return;
+      const existing = state.resultsByPeer.get(from);
+      if (existing) {
+        if (
+          existing.digest === message.digest &&
+          existing.score === message.score &&
+          existing.words.length === message.words.length &&
+          existing.words.every((word, index) => word === message.words[index]) &&
+          state.localResult
+        ) {
+          await sendCommonResponse(from, existing, true);
+        }
+        return;
+      }
       let digest;
       try {
         digest = await protocol.computeResultDigest({
@@ -282257,6 +282344,12 @@ const lexicon = [
           }
         }
         if (newlyConnected) announcePeer(key);
+        if (
+          newlyConnected &&
+          state.localResult &&
+          state.activeGame &&
+          state.activeGame.kind === "multiplayer"
+        ) armResultRetry();
       }
       draw();
     }
@@ -282523,10 +282616,7 @@ const lexicon = [
             wrong: evaluated.wrong, duplicates: evaluated.duplicates,
             score: evaluated.score, digest, sent: false,
           };
-          const message = protocol.result({
-            gameId: game.gameId, words, score: evaluated.score,
-            digest, ts: nextProtocolTs(),
-          });
+          const message = localResultMessage();
           state.localResult.sent = true;
           const sendPromise = reportSend(
             port.sendToMany(connectedPeers(), message),
@@ -282539,6 +282629,7 @@ const lexicon = [
           reevaluatePendingCommon();
           state.phase = "results";
           clearTimerHandles();
+          armResultRetry();
           draw();
           await sendPromise;
         });
@@ -282581,6 +282672,7 @@ const lexicon = [
         destroyed = true;
         lifecycleRevision += 1;
         clearTimerHandles();
+        clearResultRetry();
         if (unsubscribe) {
           unsubscribe();
           unsubscribe = null;
