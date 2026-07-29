@@ -281279,6 +281279,7 @@ let answers		= [];	// As the board is solved, this answer list will be populated
 
 let timer_state		= 0;	// 0: "Start", 1: <counting down>, 2: Displays time, click to check words
 let timer_time		= 180;	// The current countdown time
+let timer_started_at	= null;	// Wall-clock start time used to prevent countdown drift
 const col_height	= 10;   // Number of rows in the column of words on paper
 </script>
 
@@ -281334,53 +281335,59 @@ class Dice {
                 sensor.setAttribute("aria-label", `Letter ${Dice.values[i]}`);
             }
         }
-        static checkNeighbour(pos, letter){
-            let neighbours = [];
-            for(let i = -1; i <= 1; i++) for(let j = -1; j <= 1; j++)
-                if(pos[0]+i >= 0 && pos[0]+i < 4 && pos[1]+j >= 0 && pos[1]+j < 4)
-                    neighbours.push([pos[0]+i,pos[1]+j,pos[2]]);
-            let result = [];
-            for(let i of neighbours)
-                if(Dice.values[i[0]*4+i[1]] === letter && !i[2].includes(i[0]*4+i[1])){
-                    let newpath = [i[0],i[1],[...i[2]]];
-                    newpath[2].push(i[0]*4+i[1]);
-                    result.push(newpath);
-                }
+        static neighbours = Array.from({length: 16}, (_, position) => {
+            const x = Math.floor(position / 4);
+            const y = position % 4;
+            const result = [];
+
+            for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
+                const nextX = x + dx;
+                const nextY = y + dy;
+                if((dx || dy) && nextX >= 0 && nextX < 4 && nextY >= 0 && nextY < 4)
+                    result.push(nextX * 4 + nextY);
+            }
+
             return result;
-        }
-        static iterativeSearch(word, x, y){
-            let arr = [[x, y, [x*4+y]]];
-            for(let i = 1; i < word.length; i++){
-                if(!arr.length) return false;
-                let temparr = [];
-                for(let j of arr) temparr.push(...(Dice.checkNeighbour(j, word[i])));
-                arr = temparr;
+        });
+        static lowerBound(words, target, low, high){
+            while(low < high){
+                const middle = Math.floor((low + high) / 2);
+                if(words[middle] < target) low = middle + 1;
+                else high = middle;
             }
-            return arr.length>0;
+            return low;
         }
-        static find(word){
-            console.log("Finding");
-            for(let i = 0; i < 4; i++) for(let j = 0; j < 4; j++){
-                // console.log(Dice.iterativeSearch(word, i, j));
-                if(Dice.values[i*4+j] === word[0] && Dice.iterativeSearch(word, i, j))
-                    return true;
-            }
-            if(!word.includes('QU')) return false;
-            word = word.replace('QU','Q');
-            for(let i = 0; i < 4; i++) for(let j = 0; j < 4; j++){
-                // console.log(Dice.iterativeSearch(word, i, j));
-                if(Dice.values[i*4+j] === word[0] && Dice.iterativeSearch(word, i, j))
-                    return true;
-            }
-            return false;
+        static prefixRange(words, prefix, low, high){
+            const start = Dice.lowerBound(words, prefix, low, high);
+            // '[' immediately follows 'Z', and the lexicon contains only A-Z.
+            const end = Dice.lowerBound(words, `${prefix}[`, start, high);
+            return [start, end];
         }
-        static findAsync = async word => new Promise(resolve => {resolve(Dice.find(word));});
         static async findAllAsync(lexicon){
-            for(let i = 0; i < lexicon.length; i++){
-                if(await Dice.findAsync(lexicon[i])) answers.push(lexicon[i]);
-                if(!(i % 50)) await new Promise(resolve => setTimeout(resolve, 0));
+            const found = new Set();
+
+            const search = (position, prefix, low, high, used) => {
+                const letter = Dice.values[position];
+                const spellings = letter === 'Q' ? ['Q', 'QU'] : [letter];
+                const visited = used | (1 << position);
+
+                for(const spelling of spellings){
+                    const nextPrefix = prefix + spelling;
+                    const [start, end] = Dice.prefixRange(lexicon, nextPrefix, low, high);
+                    if(start === end) continue;
+
+                    if(lexicon[start] === nextPrefix) found.add(nextPrefix);
+
+                    for(const neighbour of Dice.neighbours[position])
+                        if(!(visited & (1 << neighbour)))
+                            search(neighbour, nextPrefix, start, end, visited);
+                }
             }
-            console.log(answers.length);
+
+            for(let position = 0; position < Dice.values.length; position++)
+                search(position, '', 0, lexicon.length, 0);
+
+            answers = [...found].sort();
         }
 
         static getPoints = (word, sussed) =>
@@ -281427,6 +281434,7 @@ document.getElementById("timer").addEventListener("click", async (evt)=>{
 
             // Set the timer to 3 mins and display the word start
             timer_time = 180;
+            timer_started_at = null;
             document.getElementById("timer").textContent = "Start";
 
             break;
@@ -281455,11 +281463,12 @@ document.getElementById("timer").addEventListener("click", async (evt)=>{
             Dice.findAllAsync(lexicon).then(()=>{document.getElementById("timer").disabled = false;});
             document.getElementById("timer").disabled = true;
             // Call the asychronous loop to count down the timer change the display every second
+            timer_started_at = Date.now();
             document.getElementById("timer").textContent = `${Math.floor(timer_time / 60)} : ${(timer_time % 60).toString().padStart(2,"0")}`
             await (async ()=>{
                 while(timer_state === 1 && timer_time > 0){
                     await new Promise(resolve => setTimeout(resolve, 1000));
-                    --timer_time;
+                    timer_time = Math.max(0, 180 - Math.floor((Date.now() - timer_started_at) / 1000));
                     if(timer_state === 1)
                         document.getElementById("timer").textContent = `${Math.floor(timer_time / 60)} : ${(timer_time % 60).toString().padStart(2,"0")}`
                 }
