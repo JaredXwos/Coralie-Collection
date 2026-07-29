@@ -285,7 +285,8 @@ const AppState = {
   //   localDeadlineMonoMs: number | null,
   //   rulesVersion: string,
   //   generation: number,
-  //   solverPromise: Promise<Set<string>>
+  //   solverPromise: Promise<Set<string>>,
+  //   participantPubkeys: string[] // Multiplayer only; local delivery cache
   // }
 
   seenStartGameIds: new Set(),
@@ -1120,8 +1121,9 @@ For Multiplayer:
 8. Compute the result digest and store `localResult`.
 9. Construct and locally dispatch one `boggle/result`.
 10. Set `localResult.sent = true` synchronously before starting network work.
-11. Invoke `sendToMany` exactly once for the current connected-peer snapshot.
-    Individual failures do not clear `sent` or cause automatic retries.
+11. Invoke `sendToMany` for the union of the locally retained round
+    participants and the current connected-peer snapshot. A transient empty
+    peer event must not erase the round's result recipients.
 12. For every stored remote result without an entry in
     `commonResponsesSent`, produce its one required common response.
 13. Re-evaluate pending common messages against the completed local result.
@@ -1157,9 +1159,9 @@ For each structurally valid result:
    network effect.
 13. Add the key to `commonResponsesSent` synchronously before starting network
     work.
-14. Invoke `sendToMany` exactly once for the current connected-peer snapshot.
-    Individual send failures are reported through the settled result but do not
-    clear the response key or trigger automatic retries.
+14. Send the common response directly to the player whose result it
+    acknowledges. Do not gate this direct response on the cached connected
+    flag.
 15. Refresh rendering.
 
 For each valid common message:

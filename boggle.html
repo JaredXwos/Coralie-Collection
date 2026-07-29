@@ -282066,10 +282066,10 @@ const lexicon = [
       if (outcome !== "drop") draw();
     }
 
-    async function sendCommonResponse(from, result, forceDirect) {
+    async function sendCommonResponse(from, result, forceResend) {
       if (!state.localResult || !state.activeGame) return;
       const key = `${from}:${result.digest}`;
-      if (!forceDirect && state.commonResponsesSent.has(key)) return;
+      if (!forceResend && state.commonResponsesSent.has(key)) return;
       const local = new Set(state.localResult.correct);
       const words = result.words.filter((word) => local.has(word)).sort();
       const message = protocol.common({
@@ -282083,13 +282083,19 @@ const lexicon = [
       state.commonResponsesSent.add(key);
       draw();
       await reportSend(
-        port.sendToMany(forceDirect ? [from] : connectedPeers(), message),
+        port.sendToMany([from], message),
         "Could not send common-word response.",
       );
     }
 
     function pendingResultPeers() {
-      return connectedPeers().filter((key) => !state.resultAcknowledgedBy.has(key));
+      if (!state.activeGame || state.activeGame.kind !== "multiplayer") return [];
+      return [...new Set([
+        ...state.activeGame.participantPubkeys,
+        ...connectedPeers(),
+      ])].filter((key) =>
+        key !== state.myPubkeyHex && !state.resultAcknowledgedBy.has(key)
+      );
     }
 
     function localResultMessage() {
@@ -282220,10 +282226,14 @@ const lexicon = [
       draw();
     }
 
-    function selectCandidate(message, arbitrationEndsAt) {
+    function selectCandidate(message, arbitrationEndsAt, envelopeSender) {
       resetRoundForSelection();
       const generation = state.gameGeneration;
       const solverPromise = Promise.resolve().then(() => engine.solve(message.board));
+      const participantPubkeys = [...new Set([
+        ...connectedPeers(),
+        envelopeSender,
+      ])].filter((key) => PUBKEY.test(key) && key !== state.myPubkeyHex);
       state.activeGame = {
         kind: "multiplayer",
         gameId: message.gameId,
@@ -282237,6 +282247,7 @@ const lexicon = [
         rulesVersion: message.rulesVersion,
         generation,
         solverPromise,
+        participantPubkeys,
       };
       state.phase = "scheduled";
       arbitrationHandle = timers.setTimeout(() => {
@@ -282274,9 +282285,9 @@ const lexicon = [
       state.seenStartGameIds.add(message.gameId);
       void relayStart(message, localInitial ? null : envelopeSender);
       if (state.phase === "room") {
-        selectCandidate(message, clock.monotonicNow() + ARBITRATION);
+        selectCandidate(message, clock.monotonicNow() + ARBITRATION, envelopeSender);
       } else if (message.gameId < state.activeGame.gameId) {
-        selectCandidate(message, state.activeGame.arbitrationEndsAtMonoMs);
+        selectCandidate(message, state.activeGame.arbitrationEndsAtMonoMs, envelopeSender);
       }
     }
 
@@ -282619,7 +282630,7 @@ const lexicon = [
           const message = localResultMessage();
           state.localResult.sent = true;
           const sendPromise = reportSend(
-            port.sendToMany(connectedPeers(), message),
+            port.sendToMany(pendingResultPeers(), message),
             "Could not send game result.",
           );
           for (const [from, result] of state.resultsByPeer) {
