@@ -1,0 +1,12 @@
+# Keep repository text files consistent across operating systems.
+* text=auto eol=lf
+
+# Do not attempt line-ending conversion for common binary assets.
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.woff binary
+*.woff2 binary

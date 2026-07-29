@@ -39,10 +39,13 @@
   {
     "id": "boggle",
     "title": "Boggle",
-    "description": "A self-contained Boggle word game with a timed board, word tracing, scoring, and an embedded dictionary.",
+    "description": "A self-contained Boggle word game with solo play, Coralie mesh multiplayer, scoring, and an embedded dictionary.",
     "file": "boggle.html",
-    "build": "boggle-standalone",
-    "capabilities": [],
+    "build": "boggle-coralie-v2",
+    "capabilities": [
+      "mesh",
+      "storage"
+    ],
     "category": "Game"
   }
 ]

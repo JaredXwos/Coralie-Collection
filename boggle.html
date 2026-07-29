@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta name="coralie-page-build" content="boggle-coralie-v2">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#160b2d">
-<meta name="description" content="A self-contained, three-minute Boggle word game.">
+<meta name="description" content="A self-contained three-minute Boggle game for solo or Coralie mesh multiplayer play.">
 <title>Boggle</title>
+<!-- Coralie Android capabilities: mesh, storage -->
+<!-- Coralie host bootstrap: ./Coralie/v2/host.js (loaded lazily for Multiplayer) -->
 
 <!-- This HTML made was for Nanyang Technological University Hall 6 word games team, with strong support from the Visual Arts Society Legacy group.  - Jih How -->
 
@@ -280777,862 +280780,2066 @@ const lexicon = [
 </script>
 
 
-<!-- All page styles live here so the game remains portable. --><style>
-:root {
-    color-scheme: dark;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --background: #160b2d;
-    --panel: rgba(27, 15, 51, 0.88);
-    --panel-strong: rgba(18, 10, 35, 0.95);
-    --border: rgba(255, 255, 255, 0.13);
-    --text: #f8f7ff;
-    --muted: #bdb4d5;
-    --accent: #c084fc;
-    --accent-strong: #8b5cf6;
-    --focus: #67e8f9;
-    --success: #4ade80;
-}
+<!-- All page styles are embedded so Solo remains fully portable. --><style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--bg:#160b2d;--panel:rgba(27,15,51,.9);--strong:rgba(18,10,35,.96);--border:rgba(255,255,255,.13);--text:#f8f7ff;--muted:#bdb4d5;--accent:#c084fc;--accent2:#8b5cf6;--focus:#67e8f9;--success:#4ade80;--danger:#fb7185;--amber:#fbbf24}
+*{box-sizing:border-box}html{min-height:100%;background:var(--bg)}body{min-width:320px;min-height:100vh;min-height:100dvh;margin:0;color:var(--text);background:radial-gradient(circle at 14% 10%,rgba(139,92,246,.34),transparent 34rem),radial-gradient(circle at 90% 88%,rgba(34,211,238,.14),transparent 30rem),linear-gradient(145deg,#120824,#241044 52%,#160b2d)}button,input{font:inherit}button{-webkit-tap-highlight-color:transparent}.boggle-app{width:min(100%,1180px);min-height:100dvh;margin:auto;padding:max(1rem,env(safe-area-inset-top)) max(1rem,env(safe-area-inset-right)) max(1rem,env(safe-area-inset-bottom)) max(1rem,env(safe-area-inset-left))}.screen{min-height:calc(100dvh - 2rem)}[hidden]{display:none!important}.mode-screen{display:grid;place-items:center}.hero-card,.panel,.game-panel,.result-card{border:1px solid var(--border);background:var(--panel);box-shadow:0 1.5rem 4rem rgba(5,2,13,.3);backdrop-filter:blur(18px)}.hero-card{width:min(100%,780px);padding:clamp(1.4rem,5vw,3.5rem);border-radius:2rem}.eyebrow{margin:0;color:var(--accent);font-size:.75rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase}h1{margin:.35rem 0;font-size:clamp(2.25rem,7vw,4.75rem);line-height:.95;letter-spacing:-.045em}h2{margin:0;font-size:1rem}.lede,.instructions{color:var(--muted);line-height:1.55}.mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:2rem}.choice-card{display:grid;gap:.45rem;min-height:12rem;padding:1.4rem;text-align:left;color:var(--text);cursor:pointer;border:1px solid var(--border);border-radius:1.2rem;background:var(--strong)}.choice-card strong{font-size:1.6rem}.choice-card span:last-child{color:var(--muted);line-height:1.4}.choice-card:hover{border-color:var(--accent)}.choice-primary{background:linear-gradient(145deg,rgba(139,92,246,.38),var(--strong))}.choice-kicker{color:var(--accent);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}.screen-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 0 1.5rem}.screen-header h1{font-size:clamp(2rem,5vw,3.5rem)}.room-layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:1rem}.stack{display:grid;gap:1rem}.panel{padding:1.3rem;border-radius:1.25rem}.section-heading,.result-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}.privacy-note,.aesthetic-label{color:var(--muted);font-size:.72rem}.panel label{display:block;margin:.9rem 0 .35rem;color:var(--muted);font-size:.8rem;font-weight:700}.field-row{display:flex;gap:.55rem}.field-row input,.key-output{min-width:0;flex:1;padding:.72rem .8rem;border:1px solid var(--border);border-radius:.7rem;color:var(--text);background:var(--strong)}.key-output{overflow:hidden;font:12px "SFMono-Regular",Consolas,monospace;text-overflow:ellipsis;white-space:nowrap}.mono{font-family:"SFMono-Regular",Consolas,monospace}.button{min-height:2.75rem;padding:.65rem 1rem;cursor:pointer;border:1px solid var(--accent);border-radius:.75rem;color:var(--accent);background:rgba(139,92,246,.16);font-weight:750}.button:hover:not(:disabled){filter:brightness(1.15)}.button:disabled{cursor:wait;opacity:.55}.button.primary{color:#160b2d;border-color:#d8b4fe;background:linear-gradient(135deg,#d8b4fe,var(--accent))}.button.secondary{border-color:var(--border);color:var(--text);background:var(--strong)}.button.ghost{border-color:var(--border);color:var(--muted);background:transparent}.button.wide{width:100%;margin-top:auto}.button.compact{min-height:2.2rem;padding:.35rem .65rem;font-size:.78rem}.status{min-height:1.2rem;margin:.8rem 0 0;color:var(--muted);font-size:.82rem}.status.error{color:#fecdd3}.count-badge{padding:.25rem .55rem;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:.75rem}.players-panel{display:flex;flex-direction:column;min-height:26rem}.player-list,.word-list{margin:0;padding:0;list-style:none}.player-list{display:grid;gap:.55rem;margin-bottom:1rem}.player-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.8rem;align-items:center;padding:.75rem;border:1px solid var(--border);border-radius:.75rem;background:var(--strong)}.player-name{overflow:hidden;font-weight:750;text-overflow:ellipsis;white-space:nowrap}.player-key{display:block;margin-top:.2rem;color:var(--muted);font:11px "SFMono-Regular",Consolas,monospace}.player-score{font:700 1.1rem "SFMono-Regular",Consolas,monospace}.empty{padding:1.2rem;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:.75rem}.game-screen{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);align-items:center;gap:clamp(1.25rem,3vw,3.5rem)}.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(.55rem,1.5vw,1rem);width:100%;max-width:640px;aspect-ratio:1;margin:auto;padding:clamp(.6rem,1.5vw,1rem);touch-action:none;user-select:none;border:1px solid var(--border);border-radius:2rem;background:rgba(9,5,20,.34)}.die{display:flex;min-width:0;aspect-ratio:1;overflow:hidden;border:1px solid rgba(64,52,83,.3);border-radius:1.15rem;background:linear-gradient(145deg,#fff,#eeeaf2 58%,#d8d1df);box-shadow:0 .6rem 1rem rgba(5,2,13,.28)}.sensor{width:100%;height:100%;padding:0;border:0;border-radius:inherit;color:#21182e;background:transparent;font-size:clamp(2.25rem,10vmin,5rem);font-weight:800}.die.path{transform:scale(.94);background:linear-gradient(145deg,#bbf7d0,#4ade80)}.sensor:focus-visible,.button:focus-visible,.choice-card:focus-visible,.timer:focus-visible,input:focus-visible{outline:3px solid var(--focus);outline-offset:3px}.game-panel{display:flex;flex-direction:column;min-width:0;min-height:min(680px,calc(100dvh - 3rem));padding:clamp(1rem,2.5vw,1.75rem);border-radius:2rem}.game-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.25rem 1rem}.game-header h1{font-size:clamp(2rem,4vw,3.5rem)}.instructions{grid-column:1/-1;margin:.15rem 0 0;font-size:.9rem}.timer{width:100%;min-height:5rem;margin:1rem 0 .8rem;padding:.6rem 1rem;cursor:pointer;border:1px solid rgba(187,247,208,.7);border-radius:1rem;color:#073b29;background:linear-gradient(135deg,#86efac,var(--success));font:800 clamp(1.5rem,4vw,3rem) "SFMono-Regular",Consolas,monospace}.timer:disabled{cursor:wait;opacity:.7}.selector{display:flex;min-height:3.5rem;gap:.65rem;margin-bottom:.8rem}.selected{flex:1;min-width:0;width:100%;padding:.65rem .9rem;border:1px solid rgba(192,132,252,.65);border-radius:.9rem;color:var(--text);background:var(--strong);font-size:1.1rem;font-weight:750;text-align:center;text-transform:uppercase}.selected+.selected{display:none}.paper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));flex:1;min-height:18rem;overflow:hidden;border:1px solid rgba(192,132,252,.55);border-radius:1rem;background:var(--strong)}.col{display:grid;grid-template-rows:repeat(10,minmax(0,1fr));min-width:0;padding:.8rem;text-align:center}.col+.col{border-left:1px solid rgba(255,255,255,.08)}.words{align-self:center;min-width:0;margin:0;overflow:hidden;font-size:clamp(.72rem,1.4vw,.95rem);font-weight:650;text-overflow:ellipsis;text-transform:uppercase;white-space:nowrap}.results-screen{padding-bottom:2rem}.score-card{display:grid;min-width:9rem;padding:.8rem 1.2rem;text-align:right;border:1px solid var(--border);border-radius:1rem;background:var(--strong)}.score-card span{color:var(--muted);font-size:.72rem;text-transform:uppercase}.score-card strong{font:800 2rem "SFMono-Regular",Consolas,monospace}.results-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.result-card{min-height:10rem;padding:1rem;border-radius:1rem}.result-card.peer-reports{grid-column:1/-1}.word-list{display:flex;flex-wrap:wrap;gap:.45rem}.word-list li{padding:.35rem .55rem;border:1px solid var(--border);border-radius:.55rem;background:var(--strong);font:700 .8rem "SFMono-Regular",Consolas,monospace}.correct .word-list li{color:#86efac}.common .word-list li{color:#67e8f9}.wrong .word-list li{color:#fda4af}.duplicate .word-list li{color:#fde68a}.result-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1rem}.busy-label::after{content:"…"}@media(max-width:820px){.room-layout,.game-screen{grid-template-columns:1fr}.board{max-width:540px}.game-panel{min-height:34rem}}@media(max-width:560px){.boggle-app{padding:.75rem}.mode-grid,.results-grid{grid-template-columns:1fr}.field-row{align-items:stretch;flex-direction:column}.result-card.peer-reports{grid-column:auto}.screen-header{align-items:flex-start}.game-header{grid-template-columns:1fr}.game-header .compact{justify-self:start}.board{gap:.45rem;padding:.5rem;border-radius:1.15rem}.die{border-radius:.8rem}.sensor{font-size:clamp(2rem,14vw,3.5rem)}.game-panel{padding:.9rem;border-radius:1.15rem}.paper{min-height:15rem}.col{padding:.4rem}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
-* {
-    box-sizing: border-box;
-}
-
-html {
-    min-height: 100%;
-    background: var(--background);
-}
-
-body {
-    min-width: 320px;
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin: 0;
-    overflow-x: hidden;
-    color: var(--text);
-    background:
-        radial-gradient(circle at 14% 10%, rgba(139, 92, 246, 0.34), transparent 34rem),
-        radial-gradient(circle at 90% 88%, rgba(34, 211, 238, 0.14), transparent 30rem),
-        linear-gradient(145deg, #120824 0%, #241044 52%, #160b2d 100%);
-}
-
-button,
-input {
-    font: inherit;
-}
-
-button {
-    -webkit-tap-highlight-color: transparent;
-}
-
-.super {
-    display: grid;
-    grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
-    align-items: center;
-    gap: clamp(1.25rem, 3vw, 3.5rem);
-    width: min(100%, 1180px);
-    min-height: 100dvh;
-    margin: 0 auto;
-    padding: clamp(1rem, 3vw, 2.5rem);
-    padding-top: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-top));
-    padding-right: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-right));
-    padding-bottom: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-bottom));
-    padding-left: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-left));
-}
-
-.board {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: clamp(0.55rem, 1.5vw, 1rem);
-    width: 100%;
-    max-width: 640px;
-    aspect-ratio: 1;
-    margin: 0 auto;
-    padding: clamp(0.6rem, 1.5vw, 1rem);
-    touch-action: none;
-    user-select: none;
-    border: 1px solid var(--border);
-    border-radius: clamp(1.25rem, 3vw, 2rem);
-    background: rgba(9, 5, 20, 0.34);
-    box-shadow: 0 1.5rem 4rem rgba(5, 2, 13, 0.36);
-}
-
-.die {
-    display: flex;
-    min-width: 0;
-    aspect-ratio: 1;
-    overflow: hidden;
-    border: 1px solid rgba(64, 52, 83, 0.3);
-    border-radius: clamp(0.85rem, 2.5vw, 1.35rem);
-    background: linear-gradient(145deg, #ffffff 0%, #eeeaf2 58%, #d8d1df 100%);
-    box-shadow:
-        0 0.6rem 1rem rgba(5, 2, 13, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
-    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.sensor {
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    border-radius: inherit;
-    outline: none;
-    color: #21182e;
-    background: transparent;
-    font-size: clamp(2.25rem, 10vmin, 5rem);
-    font-weight: 800;
-    line-height: 1;
-    text-align: center;
-    touch-action: none;
-}
-
-.sensor:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: -6px;
-}
-
-.die.path {
-    transform: scale(0.94);
-    border-color: #34d399;
-    background: linear-gradient(145deg, #bbf7d0 0%, #4ade80 100%);
-    box-shadow:
-        0 0 0 4px rgba(74, 222, 128, 0.2),
-        0 0.75rem 1.5rem rgba(16, 185, 129, 0.28);
-}
-
-.sensor.path {
-    color: #073b29;
-    background: transparent;
-}
-
-.menu {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: min(680px, calc(100dvh - 5rem));
-    padding: clamp(1rem, 2.5vw, 1.75rem);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    border-radius: clamp(1.25rem, 3vw, 2rem);
-    background: var(--panel);
-    box-shadow: 0 1.5rem 4rem rgba(5, 2, 13, 0.3);
-    backdrop-filter: blur(18px);
-}
-
-.game-header {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.eyebrow {
-    margin: 0;
-    color: var(--accent);
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-}
-
-.game-header h1 {
-    margin: 0;
-    font-size: clamp(2rem, 4vw, 3.5rem);
-    line-height: 0.95;
-    letter-spacing: -0.04em;
-}
-
-.instructions {
-    max-width: 48ch;
-    margin: 0.15rem 0 0;
-    color: var(--muted);
-    font-size: clamp(0.88rem, 1.5vw, 1rem);
-    line-height: 1.5;
-}
-
-.timer {
-    width: 100%;
-    min-height: clamp(4.5rem, 11vh, 6rem);
-    margin: clamp(1rem, 2.5vh, 1.5rem) 0 0.8rem;
-    padding: 0.6rem 1rem;
-    cursor: pointer;
-    border: 1px solid rgba(187, 247, 208, 0.7);
-    border-radius: 1rem;
-    color: #073b29;
-    background: linear-gradient(135deg, #86efac 0%, var(--success) 100%);
-    box-shadow:
-        0 0.7rem 1.5rem rgba(34, 197, 94, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.55);
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    font-size: clamp(2rem, 5.5vw, 4rem);
-    font-weight: 800;
-    line-height: 1;
-    transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
-}
-
-.timer:hover:not(:disabled) {
-    filter: brightness(1.05);
-}
-
-.timer:active:not(:disabled) {
-    transform: translateY(2px);
-}
-
-.timer:focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-}
-
-.timer:disabled {
-    cursor: wait;
-    opacity: 0.7;
-}
-
-.selector {
-    display: flex;
-    min-height: 3.5rem;
-    gap: 0.65rem;
-    margin-bottom: 0.8rem;
-}
-
-.selected {
-    flex: 1;
-    min-width: 0;
-    width: 100%;
-    padding: 0.65rem 0.9rem;
-    border: 1px solid rgba(192, 132, 252, 0.65);
-    border-radius: 0.9rem;
-    outline: none;
-    color: var(--text);
-    background: var(--panel-strong);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    font-size: clamp(1rem, 2.2vw, 1.35rem);
-    font-weight: 750;
-    text-align: center;
-    text-transform: uppercase;
-}
-
-.selected + .selected {
-    display: none;
-}
-
-.selected::placeholder {
-    color: #817797;
-    text-transform: none;
-}
-
-.selected:focus {
-    border-color: var(--focus);
-    box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.14);
-}
-
-.paper,
-.results {
-    flex: 1;
-    min-height: 18rem;
-    overflow: hidden;
-    border: 1px solid rgba(192, 132, 252, 0.55);
-    border-radius: 1rem;
-    background: var(--panel-strong);
-}
-
-.paper {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.col {
-    display: grid;
-    grid-template-rows: repeat(10, minmax(0, 1fr));
-    min-width: 0;
-    padding: 0.8rem;
-    text-align: center;
-}
-
-.col + .col {
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.words {
-    min-width: 0;
-    margin: 0;
-    overflow: hidden;
-    color: var(--text);
-    font-size: clamp(0.72rem, 1.4vw, 0.95rem);
-    font-weight: 650;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.col .words {
-    align-self: center;
-}
-
-.results {
-    display: none;
-    padding: 1rem;
-    overflow-y: auto;
-}
-
-.results .words + .words {
-    margin-top: 0.45rem;
-}
-
-@media (max-width: 820px) {
-    .super {
-        grid-template-columns: minmax(0, 1fr);
-        align-content: start;
-        width: min(100%, 680px);
-    }
-
-    .board {
-        max-width: 540px;
-    }
-
-    .menu {
-        min-height: 34rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .super {
-        gap: 0.85rem;
-        padding: 0.75rem;
-        padding-top: max(0.75rem, env(safe-area-inset-top));
-        padding-right: max(0.75rem, env(safe-area-inset-right));
-        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-        padding-left: max(0.75rem, env(safe-area-inset-left));
-    }
-
-    .board {
-        gap: 0.45rem;
-        padding: 0.5rem;
-        border-radius: 1.15rem;
-    }
-
-    .die {
-        border-radius: 0.8rem;
-    }
-
-    .sensor {
-        font-size: clamp(2rem, 14vw, 3.5rem);
-    }
-
-    .menu {
-        min-height: 32rem;
-        padding: 0.9rem;
-        border-radius: 1.15rem;
-    }
-
-    .game-header h1 {
-        font-size: 2.1rem;
-    }
-
-    .timer {
-        min-height: 4rem;
-        margin-top: 0.9rem;
-        font-size: clamp(1.85rem, 11vw, 2.6rem);
-    }
-
-    .selector {
-        min-height: 3rem;
-    }
-
-    .paper,
-    .results {
-        min-height: 15rem;
-    }
-
-    .col {
-        padding: 0.45rem;
-    }
-}
-
-@media (orientation: landscape) and (max-height: 700px) and (min-width: 700px) {
-    .super {
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.92fr);
-        align-items: stretch;
-        gap: 1rem;
-        padding: 0.75rem;
-    }
-
-    .board {
-        align-self: center;
-        width: min(48vw, calc(100dvh - 1.5rem));
-    }
-
-    .menu {
-        min-height: 0;
-        max-height: calc(100dvh - 1.5rem);
-        padding: 0.9rem;
-    }
-
-    .game-header {
-        grid-template-columns: auto minmax(0, 1fr);
-        align-items: end;
-        gap: 1rem;
-    }
-
-    .game-header h1 {
-        font-size: 1.9rem;
-    }
-
-    .eyebrow {
-        display: none;
-    }
-
-    .instructions {
-        font-size: 0.78rem;
-        line-height: 1.35;
-    }
-
-    .timer {
-        min-height: 3.2rem;
-        margin: 0.6rem 0;
-        font-size: 2rem;
-    }
-
-    .selector {
-        min-height: 2.75rem;
-        margin-bottom: 0.6rem;
-    }
-
-    .paper,
-    .results {
-        min-height: 0;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .die,
-    .timer {
-        transition: none;
-    }
-}
+.missed .word-list li{color:#c4b5fd}.selected.q-choice{cursor:pointer;border-color:var(--focus);background:rgba(103,232,249,.12)}.sensor:disabled{cursor:default;opacity:.72}.timer{font-size:clamp(1.35rem,3.2vw,2.35rem);white-space:nowrap}
 </style>
 </head>
+<body>
+<main class="boggle-app">
+  <section id="mode-screen" class="screen mode-screen" aria-labelledby="mode-title">
+    <div class="hero-card">
+      <p class="eyebrow">Three-minute word game</p>
+      <h1 id="mode-title">Boggle</h1>
+      <p class="lede">Trace adjacent letters, build words, and choose how you want to play.</p>
+      <div class="mode-grid">
+        <button id="solo-mode-btn" class="choice-card" type="button">
+          <span class="choice-kicker">On this device</span><strong>Solo</strong>
+          <span>Play the classic game without connecting.</span>
+        </button>
+        <button id="multiplayer-mode-btn" class="choice-card choice-primary" type="button">
+          <span class="choice-kicker">Coralie mesh</span><strong>Multiplayer</strong>
+          <span>Connect directly and compare results.</span>
+        </button>
+      </div>
+      <p id="multiplayer-error" class="status error" role="alert" hidden></p>
+    </div>
+  </section>
 
-<!-- The board and controls retain their original direct-child structure for the game logic. --><body>
+  <section id="room-screen" class="screen room-screen" aria-labelledby="room-title" hidden>
+    <header class="screen-header">
+      <div><p class="eyebrow">Multiplayer</p><h1 id="room-title">Game room</h1></div>
+      <button id="room-change-mode-btn" class="button ghost" type="button">Change mode</button>
+    </header>
+    <div class="room-layout">
+      <div class="stack">
+        <section class="panel identity-panel" aria-labelledby="identity-title">
+          <div class="section-heading"><h2 id="identity-title">Your identity</h2><span class="privacy-note">Direct mesh connection</span></div>
+          <label for="username-input">Display name</label>
+          <div class="field-row">
+            <input id="username-input" type="text" maxlength="40" autocomplete="nickname" placeholder="Choose a name">
+            <button id="save-username-btn" class="button" type="button">Save</button>
+          </div>
+          <label for="my-pubkey">Your public key</label>
+          <div class="field-row">
+            <output id="my-pubkey" class="key-output" aria-label="Your public key">Not connected</output>
+            <button id="copy-pubkey-btn" class="button secondary" type="button">Copy</button>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="connect-title">
+          <h2 id="connect-title">Connect a player</h2>
+          <label for="peer-input">Their public key</label>
+          <div class="field-row">
+            <input id="peer-input" class="mono" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="64-character public key">
+            <button id="add-peer-btn" class="button" type="button">Add player</button>
+          </div>
+          <p id="room-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+      <section class="panel players-panel" aria-labelledby="players-title">
+        <div class="section-heading">
+          <h2 id="players-title">Connected players</h2>
+          <span id="player-count" class="count-badge">0 players</span>
+        </div>
+        <ul id="player-list" class="player-list" aria-live="polite"></ul>
+        <button id="multiplayer-start-btn" class="button primary wide" type="button">Start a game</button>
+      </section>
+    </div>
+  </section>
 
-<main class="super">
+  <section id="game-screen" class="screen game-screen" aria-labelledby="game-title" hidden>
     <section id="board" class="board" aria-label="Boggle letter board">
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
-        <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
+      <div class="die inactive"><button class="sensor inactive" type="button" aria-label="Letter tile"></button></div>
     </section>
-
-    <section class="menu" aria-labelledby="game-title">
-        <header class="game-header">
-            <div>
-                <p class="eyebrow">Three-minute word game</p>
-                <h1 id="game-title">Boggle</h1>
-            </div>
-            <p class="instructions">Trace adjacent letters to make words of three or more letters. On a keyboard, type a word and press Enter.</p>
-        </header>
-
-        <button class="timer" id="timer" type="button" aria-live="polite">Start</button>
-
-        <div class="selector" id="selector" aria-label="Current word" aria-live="polite">
-            <input id="selected-word" type="text" class="selected" aria-label="Selected word" placeholder="Trace or type a word" autocomplete="off" autocapitalize="characters" spellcheck="false">
-            <input type="text" class="selected" aria-label="Choose Q or QU" autocomplete="off" autocapitalize="characters" spellcheck="false">
-        </div>
-
-        <div id="paper" class="paper" aria-label="Words found this round">
-            <div class="col">
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-            </div>
-            <div class="col">
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-            </div>
-            <div class="col">
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-                <p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p>
-            </div>
-        </div>
-
-        <div class="results" id="results" aria-label="Round results" aria-live="polite"></div>
+    <section class="game-panel">
+      <header class="game-header">
+        <div><p id="game-mode-label" class="eyebrow">Solo</p><h1 id="game-title">Boggle</h1></div>
+        <button id="game-change-mode-btn" class="button ghost compact" type="button">Change mode</button>
+        <p class="instructions">Trace adjacent letters to make words of three or more letters. On a keyboard, type a word and press Enter.</p>
+      </header>
+      <button class="timer" id="timer" type="button" aria-live="polite">Start</button>
+      <div class="selector" id="selector" aria-label="Current word" aria-live="polite">
+        <input id="selected-word" type="text" class="selected" aria-label="Selected word" placeholder="Trace or type a word" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <input type="text" class="selected" aria-label="Choose Q or QU" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </div>
+      <div id="paper" class="paper" aria-label="Words found this round">
+        <div class="col"><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p></div>
+        <div class="col"><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p></div>
+        <div class="col"><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p><p class="words"></p></div>
+      </div>
     </section>
+  </section>
+
+  <section id="results-screen" class="screen results-screen" aria-labelledby="results-title" hidden>
+    <header class="screen-header">
+      <div><p class="eyebrow">Round complete</p><h1 id="results-title">Results</h1></div>
+      <div class="score-card"><span>Final score</span><strong id="results-score">0</strong></div>
+    </header>
+    <div class="results-grid">
+      <section class="result-card correct"><div class="result-heading"><h2>Correct</h2><span class="result-dot"></span></div><ul id="correct-words" class="word-list"></ul></section>
+      <section class="result-card common"><div class="result-heading"><h2>Common</h2><span class="aesthetic-label">Score unchanged</span></div><ul id="common-words" class="word-list" aria-live="polite"></ul></section>
+      <section id="missed-card" class="result-card missed"><div class="result-heading"><h2>Missed</h2></div><ul id="missed-words" class="word-list"></ul></section>
+      <section class="result-card wrong"><div class="result-heading"><h2>Wrong</h2></div><ul id="wrong-words" class="word-list"></ul></section>
+      <section class="result-card duplicate"><div class="result-heading"><h2>Duplicates</h2></div><ul id="duplicate-words" class="word-list"></ul></section>
+      <section class="result-card peer-reports"><div class="result-heading"><h2>Player reports</h2><span class="aesthetic-label">Reported scores</span></div><ul id="peer-result-list" class="player-list"></ul></section>
+    </div>
+    <div class="result-actions">
+      <button id="back-room-btn" class="button primary" type="button">Back to room</button>
+      <button id="solo-play-again-btn" class="button primary" type="button">Play again</button>
+      <button id="results-change-mode-btn" class="button ghost" type="button">Change mode</button>
+    </div>
+  </section>
 </main>
 
-<!-- All globals go here--> <script>
-let pastactive 		= [];	// Buttons which were slid over in the current action (stack)
-let lastactive		= null;	// Button which is currently being pressed
-let cursor 		= 0;	// Index of the cursor on paper
+<!-- Pure engine: board generation, solving, classification, and scoring. --><script>
+(function (root) {
+    "use strict";
 
-let written_words	= [];	// List of written words
-let answers		= [];	// As the board is solved, this answer list will be populated by the full list of answers.
+    const DICE = Object.freeze([
+        "RIFOBX", "IFEHEY", "DENOWS", "UTOKND",
+        "HMSRAO", "LUPETS", "ACITOA", "YLGKUE",
+        "QBMJOA", "EHISPN", "VETIGN", "BALIYT",
+        "EZAVND", "RALESC", "UWILRG", "PACEMD",
+    ]);
 
-let timer_state		= 0;	// 0: "Start", 1: <counting down>, 2: Displays time, click to check words
-let timer_time		= 180;	// The current countdown time
-let timer_started_at	= null;	// Wall-clock start time used to prevent countdown drift
-const col_height	= 10;   // Number of rows in the column of words on paper
-</script>
+    const POINTS = Object.freeze([
+        Object.freeze([1, -1]),
+        Object.freeze([1, -1]),
+        Object.freeze([2, -1]),
+        Object.freeze([3, -2]),
+        Object.freeze([5, -3]),
+        Object.freeze([7, -4]),
+    ]);
 
+    // Mutable only inside the closure, matching the legacy generator's
+    // in-place face and die shuffles across successive rounds.
+    const diceState = DICE.map(function (die) { return die.split(""); });
 
-<!-- Boggle Core: All the main boggle logic including generating and solving boggle boards. [No direct interaction with DOM] --><script>
-
-class Dice {
-        static potential_values = [
-        ['R','I','F','O','B','X'],
-        ['I','F','E','H','E','Y'],
-        ['D','E','N','O','W','S'],
-	    ['U','T','O','K','N','D'],
-	    ['H','M','S','R','A','O'],
-	    ['L','U','P','E','T','S'],
-	    ['A','C','I','T','O','A'],
-	    ['Y','L','G','K','U','E'],
-	    ['Q','B','M','J','O','A'],
-	    ['E','H','I','S','P','N'],
-	    ['V','E','T','I','G','N'],
-	    ['B','A','L','I','Y','T'],
-	    ['E','Z','A','V','N','D'],
-	    ['R','A','L','E','S','C'],
-	    ['U','W','I','L','R','G'],
-	    ['P','A','C','E','M','D']
-        ];
-        static points = [
-            [1, -1],
-            [1, -1],
-            [2, -1],
-            [3, -2],
-            [5, -3],
-            [7, -4],
-        ]
-        static shuffle(){
-            for(let i = 15; i > 0; i--){
-                for(let j = 5; j > 0; j--){
-                    const k = Math.floor(Math.random() * (j + 1));
-                    [Dice.potential_values[i][j], Dice.potential_values[i][k]] =
-                    [Dice.potential_values[i][k], Dice.potential_values[i][j]];
-                }
-                const k = Math.floor(Math.random() * (i + 1));
-                [Dice.potential_values[i], Dice.potential_values[k]] =
-                [Dice.potential_values[k], Dice.potential_values[i]];
-            }
-            Dice.values = Dice.potential_values.map(([first])=>first);
-        }
-        static values = Dice.potential_values.map(([first])=>first);
-
-        static display(){
-            for(let i = 0; i < 16; i++) {
-                const sensor = document.getElementById("board").children[i].children[0];
-                sensor.textContent = Dice.values[i];
-                sensor.setAttribute("aria-label", `Letter ${Dice.values[i]}`);
-            }
-        }
-        static neighbours = Array.from({length: 16}, (_, position) => {
-            const x = Math.floor(position / 4);
-            const y = position % 4;
-            const result = [];
-
-            for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
-                const nextX = x + dx;
-                const nextY = y + dy;
-                if((dx || dy) && nextX >= 0 && nextX < 4 && nextY >= 0 && nextY < 4)
-                    result.push(nextX * 4 + nextY);
-            }
-
-            return result;
-        });
-        static lowerBound(words, target, low, high){
-            while(low < high){
-                const middle = Math.floor((low + high) / 2);
-                if(words[middle] < target) low = middle + 1;
-                else high = middle;
-            }
-            return low;
-        }
-        static prefixRange(words, prefix, low, high){
-            const start = Dice.lowerBound(words, prefix, low, high);
-            // '[' immediately follows 'Z', and the lexicon contains only A-Z.
-            const end = Dice.lowerBound(words, `${prefix}[`, start, high);
-            return [start, end];
-        }
-        static async findAllAsync(lexicon){
-            const found = new Set();
-
-            const search = (position, prefix, low, high, used) => {
-                const letter = Dice.values[position];
-                const spellings = letter === 'Q' ? ['Q', 'QU'] : [letter];
-                const visited = used | (1 << position);
-
-                for(const spelling of spellings){
-                    const nextPrefix = prefix + spelling;
-                    const [start, end] = Dice.prefixRange(lexicon, nextPrefix, low, high);
-                    if(start === end) continue;
-
-                    if(lexicon[start] === nextPrefix) found.add(nextPrefix);
-
-                    for(const neighbour of Dice.neighbours[position])
-                        if(!(visited & (1 << neighbour)))
-                            search(neighbour, nextPrefix, start, end, visited);
+    const NEIGHBOURS = Object.freeze(Array.from({ length: 16 }, function (_, position) {
+        const row = Math.floor(position / 4);
+        const column = position % 4;
+        const result = [];
+        for (let rowDelta = -1; rowDelta <= 1; rowDelta++) {
+            for (let columnDelta = -1; columnDelta <= 1; columnDelta++) {
+                const nextRow = row + rowDelta;
+                const nextColumn = column + columnDelta;
+                if ((rowDelta || columnDelta) &&
+                    nextRow >= 0 && nextRow < 4 &&
+                    nextColumn >= 0 && nextColumn < 4) {
+                    result.push(nextRow * 4 + nextColumn);
                 }
             }
-
-            for(let position = 0; position < Dice.values.length; position++)
-                search(position, '', 0, lexicon.length, 0);
-
-            answers = [...found].sort();
         }
+        return Object.freeze(result);
+    }));
 
-        static getPoints = (word, sussed) =>
-            Dice.points[Math.max(2, Math.min(8, word.length)) - 3][sussed?1:0];
+    function points(word, wrong) {
+        const index = Math.max(2, Math.min(8, word.length)) - 3;
+        return POINTS[index][wrong ? 1 : 0];
     }
 
-function toggleClass(el, removeClass, addClass) {
-    el.parentElement.classList.remove(removeClass);
-    el.parentElement.classList.add(addClass);
-    el.classList.remove(removeClass);
-    el.classList.add(addClass);
-}
+    function lowerBound(words, target, low, high) {
+        while (low < high) {
+            const middle = Math.floor((low + high) / 2);
+            if (words[middle] < target) low = middle + 1;
+            else high = middle;
+        }
+        return low;
+    }
 
-</script>
+    function prefixRange(words, prefix, low, high) {
+        const start = lowerBound(words, prefix, low, high);
+        return [start, lowerBound(words, prefix + "[", start, high)];
+    }
 
-
-<!-- All event listeners and setups go here --><script>
-
-
-// Controls the timer button
-document.getElementById("timer").addEventListener("click", async (evt)=>{
-    timer_state = (timer_state + 1) % 3;
-    switch(timer_state){
-
-        case 0:  // Timer is awaiting instructions
-
-            // Boot up the paper and clear it
-            document.getElementById("paper").style.display = "grid";
-            for(const e of document.getElementById("paper").children)
-                for(const f of e.children)
-                    f.textContent = "";
-
-            // Boot up the selector empty
-            document.getElementById("selector").style.display = "flex";
-            for(const e of document.getElementById("selector").children){
-                e.value = "";
-                e.style.display = "none";
+    function createBoard() {
+        for (let index = diceState.length - 1; index > 0; index--) {
+            for (let face = 5; face > 0; face--) {
+                const otherFace = Math.floor(Math.random() * (face + 1));
+                const temporaryFace = diceState[index][face];
+                diceState[index][face] = diceState[index][otherFace];
+                diceState[index][otherFace] = temporaryFace;
             }
-            document.getElementById("selector").children[0].style.display = "block";
+            const otherDie = Math.floor(Math.random() * (index + 1));
+            const temporaryDie = diceState[index];
+            diceState[index] = diceState[otherDie];
+            diceState[otherDie] = temporaryDie;
+        }
+        return diceState.map(function (die) { return die[0]; }).join("");
+    }
 
-            // Close the results panel and clear it
-            document.getElementById("results").style.display = "none";
-            document.getElementById("results").innerHTML = "";
+    async function solve(board) {
+        if (typeof board !== "string" || !/^[A-Z]{16}$/.test(board)) {
+            throw new TypeError("board must be a 16-character uppercase string");
+        }
+        if (typeof lexicon === "undefined" || !Array.isArray(lexicon)) {
+            throw new ReferenceError("the global lexicon array is required");
+        }
 
-            // Set the timer to 3 mins and display the word start
-            timer_time = 180;
-            timer_started_at = null;
-            document.getElementById("timer").textContent = "Start";
+        const words = lexicon;
+        const found = new Set();
 
-            break;
+        function search(position, prefix, low, high, used) {
+            const letter = board[position];
+            const spellings = letter === "Q" ? ["Q", "QU"] : [letter];
+            const visited = used | (1 << position);
 
-        case 1:   // Timer is counting down
-            // refresh global variables
-            written_words = [];
-            answers = [];
-            cursor = 0;
+            for (const spelling of spellings) {
+                const nextPrefix = prefix + spelling;
+                const range = prefixRange(words, nextPrefix, low, high);
+                const start = range[0];
+                const end = range[1];
+                if (start === end) continue;
+                if (words[start] === nextPrefix) found.add(nextPrefix);
 
-            // hide the second selector
-            for(const e of document.getElementById("selector").children){
-                e.value = "";
-                e.style.display = "none";
-            }
-            document.getElementById("selector").children[0].style.display = "block";
-
-            // clear the paper again
-            for(const e of document.getElementById("paper").children)
-                for(const f of e.children)
-                    f.textContent = "";
-
-            // Refresh the board, and call the (asychronous) board solver
-            Dice.shuffle();
-            Dice.display();
-            Dice.findAllAsync(lexicon).then(()=>{document.getElementById("timer").disabled = false;});
-            document.getElementById("timer").disabled = true;
-            // Call the asychronous loop to count down the timer change the display every second
-            timer_started_at = Date.now();
-            document.getElementById("timer").textContent = `${Math.floor(timer_time / 60)} : ${(timer_time % 60).toString().padStart(2,"0")}`
-            await (async ()=>{
-                while(timer_state === 1 && timer_time > 0){
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    timer_time = Math.max(0, 180 - Math.floor((Date.now() - timer_started_at) / 1000));
-                    if(timer_state === 1)
-                        document.getElementById("timer").textContent = `${Math.floor(timer_time / 60)} : ${(timer_time % 60).toString().padStart(2,"0")}`
-                }
-            })();
-            break;
-
-
-        case 2:  // Timer displays points
-
-            const seen = new Set(), remain = new Set(answers), wrongs = [], missed = [], corrects = [], score = [0, 0, 0];
-            const res = document.getElementById("results"); res.textContent = "";
-            let i = 0;
-
-            for (const w of written_words)
-                if (seen.has(w)) wrongs.push(`Duplicate: ${w}`);
-                else {
-                    seen.add(w);
-                    if (remain.has(w)) {
-                        remain.delete(w);
-                        corrects.push(w);
-                        score[0]++;
-                        score[1] += Dice.getPoints(w, false) - 1;
-                    } else {
-                        wrongs.push(`Wrong: ${w}`);
-                        score[2] += Dice.getPoints(w, true);
+                for (const neighbour of NEIGHBOURS[position]) {
+                    if (!(visited & (1 << neighbour))) {
+                        search(neighbour, nextPrefix, start, end, visited);
                     }
                 }
-
-            for (const t of wrongs) 	res.append(Object.assign(document.createElement("p"), {className:"words", textContent: t}));
-            for (const w of remain) 	res.append(Object.assign(document.createElement("p"), {className:"words", textContent: `${++i} Missed: ${w}`}));
-            for (const w of corrects) 	res.append(Object.assign(document.createElement("p"), {className:"words", textContent: `${++i} Correct: ${w}`}));
-
-            document.getElementById("timer").textContent = `${score[0]}+${score[1]}+${score[2]}=${score.reduce((a,b)=>a+b)}`;
-
-            // Hide the selector and paper
-            document.getElementById("paper").style.display = "none";
-            document.getElementById("selector").style.display = "none";
-
-            // Make the results sheet visible
-            res.style.display = "block";
-
-            break;
-    }
-});
-
-// Logs all swipe events
-document.getElementById("board").addEventListener("touchmove", (evt) => {
-
-    // If there is a current Q word event ongoing, end it.
-
-    const selecteds = document.getElementById("selector").children;
-    if(selecteds[0].readOnly){
-        for(let n of selecteds){
-                n.readOnly = false;
-                n.style.display = "none";
             }
-        selecteds[0].style.display = "block";
-        selecteds[0].value = "";
-    }
-
-    // Find out which die was swiped over and call correct behaviour
-
-    const board = document.getElementById("board");
-    for (const touch of evt.changedTouches) for (const b of board.children) {
-        const box = b.children[0];
-        const rect = box.getBoundingClientRect();
-
-        if (
-                touch.clientX > rect.left && touch.clientX < rect.right &&
-                touch.clientY > rect.top && touch.clientY < rect.bottom
-        ) {
-
-            // If it's not the same box that was swiped over,
-            //     check if it was the previous box (undo action)
-            //     or a new box (new letter added to word)
-
-            if (box !== lastactive)
-                if (box === pastactive[pastactive.length - 1]) {
-                    toggleClass(lastactive, "path", "inactive");
-                    lastactive = pastactive.pop();
-                } else if (!pastactive.includes(box)) {
-                    if (lastactive) pastactive.push(lastactive);
-                    lastactive = box;
-                }
-
-            // Set the colours
-            for (const el of pastactive) toggleClass(el, "inactive", "path");
-            toggleClass(lastactive, "inactive", "path");
         }
-    }
-});
 
-// Compiles swipe event and gets the selected word, clearing the swipe stack.
-document.getElementById("board").addEventListener("touchend", (evt) => {
-
-    // Assemble the word formed
-    let selected = "";
-    if (lastactive) pastactive.push(lastactive);
-    for (const element of pastactive) {
-        toggleClass(element, "path", "inactive");
-        selected += element.textContent;
-    }
-
-    // Display the word form in the first selected
-    const selector = document.getElementById("selector");
-    selector.children[0].value = selected;
-
-    // Call a Q word event if required, else add to written words if longer than 2 letters
-    if (selected.includes('Q')) {
-        selector.children[1].value = selected.replace('Q', 'QU');
-        for (const e of selector.children) {
-            e.style.display = "block";
-            e.readOnly = true;
+        for (let position = 0; position < board.length; position++) {
+            search(position, "", 0, words.length, 0);
         }
-    } else if (selected.length > 2) {
-        document.getElementById("paper").children[Math.floor(cursor / col_height)].children[cursor % col_height].textContent = selected;
-        written_words.push(selected.toUpperCase());
-        cursor = written_words.length % (col_height * 3);
+        return found;
     }
 
-    // Clear stack
-    lastactive = null;
-    pastactive = [];
-});
+    function evaluate(submittedWords, solutions) {
+        if (!Array.isArray(submittedWords) ||
+            Object.prototype.toString.call(solutions) !== "[object Set]") {
+            throw new TypeError("evaluate requires an array and a Set");
+        }
 
-// Controls the button and input selectors
-for(let e of document.getElementById("selector").children){
-    e.addEventListener("click", (evt)=>{
-        if(e.readOnly){
-            console.log(e.value);
-            e.blur();
-            for(let n of document.getElementById("selector").children){
-                n.readOnly = false;
-                n.style.display = "none";
+        const remaining = new Set(solutions);
+        const seen = new Set();
+        const correct = [];
+        const wrong = [];
+        const duplicates = [];
+        let score = 0;
+
+        for (const submitted of submittedWords) {
+            const word = String(submitted).toUpperCase();
+            if (seen.has(word)) {
+                duplicates.push(word);
+                continue;
             }
-            document.getElementById("selector").children[0].style.display = "block";
-            document.getElementById("selector").children[0].value = e.value;
-            if(e.value.length < 3) return;
-            document.getElementById("paper").children[Math.floor(cursor / col_height)].children[cursor % col_height].textContent = e.value;
-            written_words.push(e.value.toUpperCase());
-            cursor = written_words.length % (col_height * 3);
+            seen.add(word);
+            if (remaining.has(word)) {
+                remaining.delete(word);
+                correct.push(word);
+                score += points(word, false);
+            } else {
+                wrong.push(word);
+                score += points(word, true);
+            }
         }
-        else e.value = "";
+
+        return {
+            correct: correct,
+            missed: Array.from(remaining),
+            wrong: wrong,
+            duplicates: duplicates,
+            score: score,
+        };
+    }
+
+    root.BoggleEngine = Object.freeze({
+        createBoard: createBoard,
+        solve: solve,
+        evaluate: evaluate,
     });
-}
+}(globalThis));
 
-// Controls the manual keyboard input (mainly for PC)
-document.getElementById("selector").children[0].addEventListener("keydown", function(event){
-    if(event.key==="Enter"){
-        const value = document.getElementById("selector").children[0].value;
-        if(value.length < 3) return;
-        document.getElementById("paper").children[Math.floor(cursor / col_height)].children[cursor % col_height].textContent = value;
-        written_words.push(value.toUpperCase());
-        cursor = written_words.length % (col_height * 3);
-        document.getElementById("selector").children[0].value = '';
+</script>
+<!-- Frozen multiplayer protocol and canonical game/result identifiers. --><script>
+(function (global) {
+  "use strict";
+
+  const VERSION = 1;
+  const RULES_VERSION = "csw24-boggle-v1";
+  const DURATION_MS = 180000;
+  const MAX_USERNAME_LENGTH = 40;
+  const MAX_RESULT_WORDS = 256;
+  const MAX_MESSAGE_BYTES = 32 * 1024;
+  const WORD_PATTERN = /^[A-Z]{3,15}$/;
+  const PUBKEY_PATTERN = /^[0-9a-f]{64}$/;
+  const ID_PATTERN = /^[0-9a-f]{64}$/;
+  const BOARD_PATTERN = /^[A-Z]{16}$/;
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+
+  function object(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function integer(value) {
+    return Number.isSafeInteger(value) && !Object.is(value, -0);
+  }
+
+  function exactFields(value, fields) {
+    if (!object(value)) return false;
+    const actual = Object.keys(value).sort();
+    const expected = fields.slice().sort();
+    return actual.length === expected.length &&
+      actual.every((key, index) => key === expected[index]);
+  }
+
+  function validWords(words) {
+    if (!Array.isArray(words) || words.length > MAX_RESULT_WORDS) return false;
+    let previous = null;
+    for (const word of words) {
+      if (typeof word !== "string" || !WORD_PATTERN.test(word)) return false;
+      if (previous !== null && word <= previous) return false;
+      previous = word;
     }
-});
+    return true;
+  }
 
-for (let i = 0; i < 16; i++) {
-    const sensor = document.getElementById("board").children[i].children[0];
-    const letter = "HTMLWORDTIMELMAO"[i];
-    sensor.textContent = letter;
-    sensor.setAttribute("aria-label", `Letter ${letter}`);
-}
+  function validName(name) {
+    return typeof name === "string" &&
+      name === name.trim() &&
+      name.length > 0 &&
+      Array.from(name).length <= MAX_USERNAME_LENGTH;
+  }
+
+  function immutable(message) {
+    if (Array.isArray(message.words)) Object.freeze(message.words);
+    return Object.freeze(message);
+  }
+
+  function validate(message) {
+    if (!object(message) || message.version !== VERSION || !integer(message.ts)) {
+      return false;
+    }
+    switch (message.type) {
+      case "boggle/profile":
+        return exactFields(message, ["type", "version", "name", "ts"]) &&
+          validName(message.name);
+      case "boggle/score":
+        return exactFields(message, ["type", "version", "score", "gameId", "ts"]) &&
+          integer(message.score) &&
+          (message.gameId === null ||
+            (typeof message.gameId === "string" && ID_PATTERN.test(message.gameId)));
+      case "boggle/start":
+        return exactFields(message, [
+          "type", "version", "gameId", "board", "issuedAtMs",
+          "durationMs", "rulesVersion", "ts",
+        ]) &&
+          typeof message.gameId === "string" && ID_PATTERN.test(message.gameId) &&
+          typeof message.board === "string" && BOARD_PATTERN.test(message.board) &&
+          integer(message.issuedAtMs) &&
+          message.durationMs === DURATION_MS &&
+          message.rulesVersion === RULES_VERSION &&
+          message.gameId === gameIdSync(message);
+      case "boggle/result":
+        return exactFields(message, [
+          "type", "version", "gameId", "words", "score", "digest", "ts",
+        ]) &&
+          typeof message.gameId === "string" && ID_PATTERN.test(message.gameId) &&
+          validWords(message.words) && integer(message.score) &&
+          typeof message.digest === "string" && ID_PATTERN.test(message.digest) &&
+          message.digest === resultDigestSync(message);
+      case "boggle/common":
+        return exactFields(message, [
+          "type", "version", "gameId", "sourceResultSender",
+          "sourceResultDigest", "words", "ts",
+        ]) &&
+          typeof message.gameId === "string" && ID_PATTERN.test(message.gameId) &&
+          typeof message.sourceResultSender === "string" &&
+          PUBKEY_PATTERN.test(message.sourceResultSender) &&
+          typeof message.sourceResultDigest === "string" &&
+          ID_PATTERN.test(message.sourceResultDigest) &&
+          validWords(message.words);
+      default:
+        return false;
+    }
+  }
+
+  function factory(type, fields, value) {
+    if (!exactFields(value, fields)) {
+      throw new TypeError(type + " fields do not match the contract");
+    }
+    const message = { type, version: VERSION };
+    for (const field of fields) {
+      message[field] = field === "words" && Array.isArray(value[field])
+        ? value[field].slice()
+        : value[field];
+    }
+    if (!validate(message)) throw new TypeError("Invalid " + type + " message");
+    return immutable(message);
+  }
+
+  function rotr(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+
+  function sha256(bytes) {
+    const constants = [
+      0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+      0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+      0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+      0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+      0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+      0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+      0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+      0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+    ];
+    const bitLength = bytes.length * 8;
+    const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
+    const data = new Uint8Array(paddedLength);
+    data.set(bytes);
+    data[bytes.length] = 0x80;
+    const view = new DataView(data.buffer);
+    view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
+    view.setUint32(paddedLength - 4, bitLength >>> 0, false);
+    const hash = new Uint32Array([
+      0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,
+      0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19,
+    ]);
+    const words = new Uint32Array(64);
+    for (let offset = 0; offset < paddedLength; offset += 64) {
+      for (let i = 0; i < 16; i++) words[i] = view.getUint32(offset + i * 4, false);
+      for (let i = 16; i < 64; i++) {
+        const x = words[i - 15], y = words[i - 2];
+        const s0 = rotr(x, 7) ^ rotr(x, 18) ^ (x >>> 3);
+        const s1 = rotr(y, 17) ^ rotr(y, 19) ^ (y >>> 10);
+        words[i] = (words[i - 16] + s0 + words[i - 7] + s1) >>> 0;
+      }
+      let a=hash[0],b=hash[1],c=hash[2],d=hash[3],e=hash[4],f=hash[5],g=hash[6],h=hash[7];
+      for (let i = 0; i < 64; i++) {
+        const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + s1 + ch + constants[i] + words[i]) >>> 0;
+        const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (s0 + maj) >>> 0;
+        h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+      }
+      hash[0]=(hash[0]+a)>>>0; hash[1]=(hash[1]+b)>>>0;
+      hash[2]=(hash[2]+c)>>>0; hash[3]=(hash[3]+d)>>>0;
+      hash[4]=(hash[4]+e)>>>0; hash[5]=(hash[5]+f)>>>0;
+      hash[6]=(hash[6]+g)>>>0; hash[7]=(hash[7]+h)>>>0;
+    }
+    return Array.from(hash, value => value.toString(16).padStart(8, "0")).join("");
+  }
+
+  function gameIdSync(value) {
+    if (!object(value) || typeof value.board !== "string" ||
+        !BOARD_PATTERN.test(value.board) || !integer(value.issuedAtMs) ||
+        value.durationMs !== DURATION_MS || value.rulesVersion !== RULES_VERSION) {
+      throw new TypeError("Invalid game descriptor");
+    }
+    return sha256(encoder.encode([
+      "boggle-game-v1", value.board, String(value.issuedAtMs),
+      String(value.durationMs), value.rulesVersion,
+    ].join("\n")));
+  }
+
+  function resultDigestSync(value) {
+    if (!object(value) || typeof value.gameId !== "string" ||
+        !ID_PATTERN.test(value.gameId) || !integer(value.score) ||
+        !validWords(value.words)) {
+      throw new TypeError("Invalid result descriptor");
+    }
+    return sha256(encoder.encode([
+      "boggle-result-v1", value.gameId, String(value.score), ...value.words,
+    ].join("\n")));
+  }
+
+  const protocol = Object.freeze({
+    profile: value => factory("boggle/profile", ["name", "ts"], value),
+    score: value => factory("boggle/score", ["score", "gameId", "ts"], value),
+    start: value => factory("boggle/start", [
+      "gameId", "board", "issuedAtMs", "durationMs", "rulesVersion", "ts",
+    ], value),
+    result: value => factory("boggle/result", [
+      "gameId", "words", "score", "digest", "ts",
+    ], value),
+    common: value => factory("boggle/common", [
+      "gameId", "sourceResultSender", "sourceResultDigest", "words", "ts",
+    ], value),
+    encode(message) {
+      if (!validate(message)) throw new TypeError("Invalid protocol message");
+      const bytes = encoder.encode(JSON.stringify(message));
+      if (bytes.byteLength > MAX_MESSAGE_BYTES) {
+        throw new RangeError("Protocol message exceeds byte limit");
+      }
+      return bytes;
+    },
+    decode(payload) {
+      try {
+        let bytes;
+        if (payload instanceof Uint8Array) bytes = payload;
+        else if (payload instanceof ArrayBuffer) bytes = new Uint8Array(payload);
+        else if (ArrayBuffer.isView(payload)) {
+          bytes = new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
+        } else return null;
+        if (bytes.byteLength > MAX_MESSAGE_BYTES) return null;
+        const value = JSON.parse(decoder.decode(bytes));
+        if (!validate(value)) return null;
+        if (Array.isArray(value.words)) value.words = value.words.slice();
+        return immutable(value);
+      } catch {
+        return null;
+      }
+    },
+    computeGameId(value) {
+      return Promise.resolve().then(() => gameIdSync(value));
+    },
+    computeResultDigest(value) {
+      return Promise.resolve().then(() => resultDigestSync(value));
+    },
+  });
+
+  Object.defineProperty(global, "BoggleProtocol", {
+    value: protocol, writable: false, configurable: true, enumerable: true,
+  });
+})(globalThis);
+
+</script>
+<!-- Lazy Coralie API v2 adapter; host.js is loaded only after Multiplayer is chosen. --><script>
+(function (global) {
+  "use strict";
+
+  const PUBKEY_PATTERN = /^[0-9a-f]{64}$/;
+  const REQUIRED_METHODS = [
+    "apiVersion", "hostKind", "getPubkey", "addPeer", "sendMessage",
+    "getPeersJson", "storageGetItem", "storageSetItem", "storageRemoveItem", "close",
+  ];
+
+  function createMultiplayerPort(options) {
+    if (!options || !options.window || !options.document || !options.protocol) {
+      throw new TypeError("window, document, and protocol are required");
+    }
+    const win = options.window;
+    const doc = options.document;
+    const protocol = options.protocol;
+    let host = null;
+    let openPromise = null;
+    let openResult = null;
+    let closePromise = null;
+
+    function validPubkey(value) {
+      return typeof value === "string" && PUBKEY_PATTERN.test(value);
+    }
+
+    function normalizePeers(value) {
+      if (!Array.isArray(value)) return [];
+      return value.map(peer => ({
+        pubkeyHex: String(peer && peer.pubkeyHex || "").toLowerCase(),
+        connectedAt: peer && peer.connectedAt != null && Number.isFinite(Number(peer.connectedAt))
+          ? Number(peer.connectedAt) : null,
+      })).filter(peer => validPubkey(peer.pubkeyHex));
+    }
+
+    function normalizeMessage(value) {
+      const fromPubkeyHex = String(value && value.fromPubkeyHex || "").toLowerCase();
+      const toPubkeyHex = String(value && value.toPubkeyHex || "").toLowerCase();
+      const timestamp = Number(value && value.timestamp);
+      let payload = new Uint8Array(0);
+      const raw = value && value.payload;
+      try {
+        if (raw instanceof Uint8Array) payload = new Uint8Array(raw);
+        else if (raw instanceof ArrayBuffer) payload = new Uint8Array(raw.slice(0));
+        else if (ArrayBuffer.isView(raw)) {
+          payload = new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength).slice();
+        } else if (Array.isArray(raw)) {
+          payload = Uint8Array.from(raw);
+        }
+      } catch {}
+      return { fromPubkeyHex, toPubkeyHex, timestamp, payload };
+    }
+
+    function normalizeFailure(value) {
+      return {
+        pubkeyHex: String(value && value.pubkeyHex || "").toLowerCase(),
+        attemptCount: Number.isSafeInteger(Number(value && value.attemptCount))
+          ? Number(value.attemptCount) : 0,
+        reason: value && value.reason != null ? String(value.reason) : null,
+      };
+    }
+
+    function loadHostScript() {
+      return new Promise((resolve, reject) => {
+        const script = doc.createElement("script");
+        script.src = "./Coralie/v2/host.js";
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load Coralie host"));
+        const parent = doc.head || doc.documentElement || doc.body;
+        if (!parent || typeof parent.appendChild !== "function") {
+          reject(new Error("Cannot load Coralie host script"));
+          return;
+        }
+        parent.appendChild(script);
+      });
+    }
+
+    function validateHost(candidate) {
+      if (!candidate) throw new Error("window.Coralie is unavailable");
+      for (const method of REQUIRED_METHODS) {
+        if (typeof candidate[method] !== "function") {
+          throw new Error("window.Coralie is missing API v2 method: " + method);
+        }
+      }
+      if (Number(candidate.apiVersion()) !== 2) {
+        throw new Error("Unsupported Coralie API version: " + String(candidate.apiVersion()));
+      }
+      return candidate;
+    }
+
+    function requireOpen() {
+      if (!host || !openResult) throw new Error("Coralie host is not initialized");
+      return host;
+    }
+
+    async function initialize() {
+      if (!win.Coralie) await loadHostScript();
+      const candidate = validateHost(win.Coralie);
+      const myPubkeyHex = String(await candidate.getPubkey()).toLowerCase();
+      if (!validPubkey(myPubkeyHex)) throw new Error("Coralie returned an invalid public key");
+      const stored = await candidate.storageGetItem("username");
+      const result = Object.freeze({
+        myPubkeyHex,
+        storedUsername: stored == null ? null : String(stored),
+        hostKind: String(await candidate.hostKind()),
+      });
+      host = candidate;
+      openResult = result;
+      return result;
+    }
+
+    const port = {
+      open() {
+        if (openResult) return Promise.resolve(openResult);
+        if (openPromise) return openPromise;
+        openPromise = initialize().catch(error => {
+          host = null;
+          openResult = null;
+          openPromise = null;
+          throw error;
+        });
+        return openPromise;
+      },
+      subscribe(handlers) {
+        requireOpen();
+        const callbacks = handlers || {};
+        const bindings = [
+          ["coralie:peers", callbacks.onPeers, normalizePeers],
+          ["coralie:message", callbacks.onMessage, normalizeMessage],
+          ["coralie:terminalFailure", callbacks.onTerminalFailure, normalizeFailure],
+        ];
+        const installed = [];
+        for (const [name, callback, normalize] of bindings) {
+          if (typeof callback !== "function") continue;
+          const listener = event => callback(normalize(event && event.detail));
+          win.addEventListener(name, listener);
+          installed.push([name, listener]);
+        }
+        let active = true;
+        return function unsubscribe() {
+          if (!active) return;
+          active = false;
+          for (const [name, listener] of installed) win.removeEventListener(name, listener);
+        };
+      },
+      async getPeers() {
+        const encoded = await requireOpen().getPeersJson();
+        let parsed;
+        try { parsed = JSON.parse(String(encoded || "[]")); }
+        catch { throw new Error("Coralie returned invalid peers JSON"); }
+        return normalizePeers(parsed);
+      },
+      async addPeer(pubkeyHex) {
+        const normalized = String(pubkeyHex).toLowerCase();
+        if (!validPubkey(normalized)) throw new TypeError("Invalid peer public key");
+        await requireOpen().addPeer(normalized);
+      },
+      async saveUsername(name) {
+        await requireOpen().storageSetItem("username", String(name));
+      },
+      async sendTo(pubkeyHex, message) {
+        const normalized = String(pubkeyHex).toLowerCase();
+        if (!validPubkey(normalized)) throw new TypeError("Invalid peer public key");
+        const payload = protocol.encode(message);
+        await requireOpen().sendMessage(normalized, payload);
+      },
+      sendToMany(pubkeyHexes, message) {
+        const keys = [];
+        const seen = new Set();
+        for (const value of pubkeyHexes) {
+          const key = String(value).toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            keys.push(key);
+          }
+        }
+        return Promise.allSettled(keys.map(key => port.sendTo(key, message)));
+      },
+      close() {
+        if (closePromise) return closePromise;
+        closePromise = Promise.resolve().then(async () => {
+          if (host && String(host.hostKind()) === "browser") await host.close();
+        });
+        return closePromise;
+      },
+    };
+    return Object.freeze(port);
+  }
+
+  Object.defineProperty(global, "createMultiplayerPort", {
+    value: createMultiplayerPort, writable: false, configurable: true, enumerable: true,
+  });
+})(globalThis);
+
+</script>
+<!-- State-to-DOM renderers and stable UI callbacks. --><script>
+(function (global) {
+  "use strict";
+
+  function createBoggleRender(document) {
+    if (!document || typeof document.getElementById !== "function") {
+      throw new TypeError("createBoggleRender requires a document");
+    }
+
+    function byId(id) {
+      var node = document.getElementById(id);
+      if (!node) throw new Error("Missing required Boggle element #" + id);
+      return node;
+    }
+
+    var El = {
+      screens: { mode: byId("mode-screen"), room: byId("room-screen"), game: byId("game-screen"), results: byId("results-screen") },
+      mode: { soloButton: byId("solo-mode-btn"), multiplayerButton: byId("multiplayer-mode-btn"), error: byId("multiplayer-error") },
+      room: {
+        pubkey: byId("my-pubkey"), copyButton: byId("copy-pubkey-btn"), usernameInput: byId("username-input"),
+        saveUsernameButton: byId("save-username-btn"), peerInput: byId("peer-input"), addPeerButton: byId("add-peer-btn"),
+        playerList: byId("player-list"), playerCount: byId("player-count"), startButton: byId("multiplayer-start-btn"),
+        changeModeButton: byId("room-change-mode-btn"), status: byId("room-status")
+      },
+      game: {
+        board: byId("board"), timer: byId("timer"), selector: byId("selector"), paper: byId("paper"),
+        modeLabel: byId("game-mode-label"), changeModeButton: byId("game-change-mode-btn")
+      },
+      results: {
+        score: byId("results-score"), correctWords: byId("correct-words"), commonWords: byId("common-words"),
+        missedCard: byId("missed-card"), missedWords: byId("missed-words"),
+        wrongWords: byId("wrong-words"), duplicateWords: byId("duplicate-words"), peerReports: byId("peer-result-list"),
+        backButton: byId("back-room-btn"), soloPlayAgainButton: byId("solo-play-again-btn"),
+        changeModeButton: byId("results-change-mode-btn")
+      }
+    };
+    var lastBoardKey = null;
+    var lastPaperGeneration = null;
+    var lastPaperLength = null;
+
+    function showScreen(name) {
+      Object.keys(El.screens).forEach(function (key) { El.screens[key].hidden = key !== name; });
+    }
+    function setText(node, value) { node.textContent = value == null ? "" : String(value); }
+    function shortKey(key) {
+      if (!key) return "Not connected";
+      return key.length > 16 ? key.slice(0, 8) + "…" + key.slice(-8) : key;
+    }
+    function displayName(username, key, local) {
+      var clean = typeof username === "string" ? username.trim() : "";
+      return clean || (local ? "You" : shortKey(key));
+    }
+    function setBusy(button, busy, idleLabel, busyLabel) {
+      button.disabled = !!busy;
+      setText(button, busy ? busyLabel : idleLabel);
+      button.setAttribute("aria-busy", busy ? "true" : "false");
+    }
+    function appendEmpty(list, message) {
+      var li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = message;
+      list.append(li);
+    }
+    function replaceWords(list, words, emptyMessage) {
+      list.replaceChildren();
+      if (!words || words.length === 0) return appendEmpty(list, emptyMessage);
+      words.forEach(function (word) {
+        var li = document.createElement("li");
+        li.textContent = String(word);
+        list.append(li);
+      });
+    }
+    function appendPlayer(list, username, key, score, local) {
+      var li = document.createElement("li");
+      var identity = document.createElement("span");
+      var name = document.createElement("span");
+      var keyLabel = document.createElement("span");
+      var scoreLabel = document.createElement("span");
+      li.className = "player-row";
+      name.className = "player-name";
+      var hasName = typeof username === "string" && username.trim() !== "";
+      name.textContent = displayName(username, key, local) + (local && hasName ? " (you)" : "");
+      keyLabel.className = "player-key";
+      keyLabel.textContent = shortKey(key);
+      scoreLabel.className = "player-score";
+      scoreLabel.textContent = String(score == null ? 0 : score);
+      scoreLabel.setAttribute("aria-label", "Reported score " + scoreLabel.textContent);
+      identity.append(name, keyLabel);
+      li.append(identity, scoreLabel);
+      list.append(li);
+    }
+    function connectedPeers(state) {
+      var rows = [];
+      if (state.peers && typeof state.peers.forEach === "function") {
+        state.peers.forEach(function (peer, key) { if (peer && peer.connected) rows.push([key, peer]); });
+      }
+      return rows;
+    }
+    function formatRemaining(ms) {
+      var seconds = Math.max(0, Math.ceil(ms / 1000));
+      var minutes = Math.floor(seconds / 60);
+      return minutes + ":" + String(seconds % 60).padStart(2, "0");
+    }
+    function renderBoard(state) {
+      var game = state.activeGame;
+      var board = game ? game.board : "HTMLWORDTIMELMAO";
+      var key = game ? game.generation + ":" + board : "preview";
+      if (key === lastBoardKey) return;
+      var tiles = El.game.board.children;
+      if (tiles.length !== 16) throw new Error("#board must have exactly 16 direct children");
+      if (typeof board !== "string" || board.length !== 16) throw new Error("Active board must contain 16 letters");
+      for (var i = 0; i < 16; i += 1) {
+        var button = tiles[i].firstElementChild;
+        if (!button || button.tagName !== "BUTTON") throw new Error("Every board tile must have one direct button child");
+        button.textContent = board[i] === "Q" ? "Qu" : board[i];
+        button.setAttribute("aria-label", board[i] === "Q" ? "Qu tile" : board[i] + " tile");
+        button.parentElement.classList.remove("path");
+      }
+      lastBoardKey = key;
+      lastPaperGeneration = null;
+      lastPaperLength = null;
+      Array.prototype.forEach.call(El.game.selector.children, function (input, index) {
+        input.value = "";
+        input.readOnly = false;
+        input.classList.remove("q-choice");
+        input.style.display = index === 0 ? "" : "none";
+      });
+    }
+    function renderPaper(state) {
+      var generation = state.activeGame ? state.activeGame.generation : null;
+      var words = state.submittedWords || [];
+      if (generation === lastPaperGeneration && words.length === lastPaperLength) return;
+      var slots = El.game.paper.querySelectorAll(".words");
+      var visible = words.slice(-slots.length);
+      Array.prototype.forEach.call(slots, function (slot, index) {
+        slot.textContent = visible[index] || "";
+      });
+      lastPaperGeneration = generation;
+      lastPaperLength = words.length;
+    }
+
+    function showMultiplayerError(message) {
+      setText(El.mode.error, message || "");
+      El.mode.error.hidden = !message;
+    }
+    function mode(state) {
+      showScreen("mode");
+      var busy = state.busyAction === "multiplayer-init";
+      El.mode.soloButton.disabled = busy;
+      El.mode.multiplayerButton.disabled = busy;
+      El.mode.multiplayerButton.setAttribute("aria-busy", busy ? "true" : "false");
+      setText(El.mode.multiplayerButton.querySelector("strong"), busy ? "Connecting…" : "Multiplayer");
+      showMultiplayerError(state.uiError);
+    }
+    function room(state) {
+      showScreen("room");
+      var busy = state.busyAction;
+      var peers = connectedPeers(state);
+      var count = 1 + peers.length;
+      setText(El.room.pubkey, state.myPubkeyHex || "Not connected");
+      El.room.pubkey.title = state.myPubkeyHex || "";
+      if (document.activeElement !== El.room.usernameInput) El.room.usernameInput.value = state.myUsername || "";
+      setBusy(El.room.copyButton, busy === "copy-pubkey", "Copy", "Copying…");
+      setBusy(El.room.saveUsernameButton, busy === "save-username", "Save", "Saving…");
+      setBusy(El.room.addPeerButton, busy === "add-peer", "Add player", "Adding…");
+      setBusy(El.room.startButton, busy === "start", "Start a game", "Starting…");
+      [El.room.copyButton, El.room.saveUsernameButton, El.room.addPeerButton, El.room.startButton]
+        .forEach(function (button) { button.disabled = !!busy; });
+      El.room.changeModeButton.disabled = !!busy;
+      El.room.usernameInput.disabled = !!busy;
+      El.room.peerInput.disabled = !!busy;
+      setText(El.room.playerCount, count + (count === 1 ? " player" : " players"));
+      El.room.playerList.replaceChildren();
+      appendPlayer(El.room.playerList, state.myUsername, state.myPubkeyHex, state.roomScore, true);
+      peers.forEach(function (entry) { appendPlayer(El.room.playerList, entry[1].username, entry[0], entry[1].score, false); });
+      setText(El.room.status, state.uiError || (peers.length ? "Players connect directly. Anyone can start." : "No peers connected yet. Share your key or add another player."));
+      El.room.status.classList.toggle("error", !!state.uiError);
+    }
+    function game(state) {
+      showScreen("game");
+      renderBoard(state);
+      renderPaper(state);
+      var active = state.activeGame;
+      var playing = state.phase === "playing";
+      var ready = state.mode === "solo" && state.phase === "ready";
+      var scheduled = state.mode === "multiplayer" && state.phase === "scheduled";
+      var finishing = state.phase === "finishing";
+      setText(El.game.modeLabel, state.mode === "multiplayer" ? "Multiplayer" : "Solo");
+      El.game.changeModeButton.hidden = !ready;
+      El.game.changeModeButton.disabled = !!state.busyAction;
+      El.game.timer.disabled = !!state.busyAction || (!ready && !playing);
+      if (ready) setText(El.game.timer, "Start");
+      else if (scheduled && (!active || !active.selectionFrozen || active.localStartsAtMonoMs == null)) setText(El.game.timer, "Choosing game…");
+      else if (scheduled) setText(El.game.timer, "Starts in " + Math.ceil(Math.max(0, active.localStartsAtMonoMs - state.timerNowMonoMs) / 1000) + "…");
+      else if (playing) setText(El.game.timer, formatRemaining(Math.min(active.durationMs, Math.max(0, active.localDeadlineMonoMs - state.timerNowMonoMs))) + " · Finish now");
+      else if (finishing) setText(El.game.timer, "Checking…");
+      else setText(El.game.timer, "Start");
+      El.game.timer.setAttribute("aria-label", playing ? "Time remaining " + El.game.timer.textContent : El.game.timer.textContent);
+      Array.prototype.forEach.call(El.game.selector.children, function (input) { input.disabled = !playing; });
+      Array.prototype.forEach.call(El.game.board.querySelectorAll(":scope > * > button"), function (button) { button.disabled = !playing; });
+    }
+    function results(state) {
+      showScreen("results");
+      var result = state.localResult || { correct: [], wrong: [], duplicates: [], score: 0 };
+      var common = state.commonWords || new Set();
+      var correct = result.correct.filter(function (word) { return !common.has(word); });
+      var commonList = result.correct.filter(function (word) { return common.has(word); });
+      setText(El.results.score, result.score);
+      replaceWords(El.results.correctWords, correct, "No unique correct words.");
+      replaceWords(El.results.commonWords, commonList, "No common words yet.");
+      El.results.missedCard.hidden = state.mode !== "solo";
+      replaceWords(El.results.missedWords, result.missed || [], "You found every board word.");
+      replaceWords(El.results.wrongWords, result.wrong, "No wrong words.");
+      replaceWords(El.results.duplicateWords, result.duplicates, "No duplicates.");
+      El.results.peerReports.replaceChildren();
+      if (state.mode === "multiplayer" && state.resultsByPeer && state.resultsByPeer.size) {
+        state.resultsByPeer.forEach(function (report, key) {
+          var peer = state.peers && state.peers.get ? state.peers.get(key) : null;
+          appendPlayer(El.results.peerReports, peer && peer.username, key, report.score, false);
+        });
+      } else appendEmpty(El.results.peerReports, state.mode === "multiplayer" ? "No player reports received." : "Player reports apply to multiplayer games.");
+      El.results.backButton.hidden = state.mode !== "multiplayer";
+      El.results.soloPlayAgainButton.hidden = state.mode !== "solo";
+      El.results.changeModeButton.hidden = state.mode !== "solo";
+      var busy = state.busyAction === "back-to-room";
+      setBusy(El.results.backButton, busy, "Back to room", "Returning…");
+      El.results.soloPlayAgainButton.disabled = !!state.busyAction;
+      El.results.changeModeButton.disabled = !!state.busyAction;
+    }
+    function draw(state) {
+      if (!state || typeof state !== "object") throw new TypeError("Render.draw requires AppState");
+      if (state.phase === "mode") return mode(state);
+      if (state.mode === "multiplayer" && state.phase === "room") return room(state);
+      if (state.phase === "results") return results(state);
+      if (["ready", "scheduled", "playing", "finishing"].indexOf(state.phase) >= 0) return game(state);
+      throw new Error("Unsupported Boggle mode/phase: " + state.mode + "/" + state.phase);
+    }
+    return { draw: draw, mode: mode, room: room, game: game, results: results, showMultiplayerError: showMultiplayerError };
+  }
+
+  function wireBoggleUi(options) {
+    if (!options || !options.root || !options.actions) throw new TypeError("wireBoggleUi requires root and actions");
+    var root = options.root;
+    var actions = options.actions;
+    var removers = [];
+    function on(id, event, handler) {
+      var node = root.getElementById ? root.getElementById(id) : root.querySelector("#" + id);
+      if (!node) throw new Error("Missing required Boggle element #" + id);
+      node.addEventListener(event, handler);
+      removers.push(function () { node.removeEventListener(event, handler); });
+    }
+    function invoke(name) { return function () { void actions[name](); }; }
+    on("solo-mode-btn", "click", invoke("chooseSolo"));
+    on("multiplayer-mode-btn", "click", invoke("enterMultiplayer"));
+    on("copy-pubkey-btn", "click", invoke("copyPubkey"));
+    on("save-username-btn", "click", function () { void actions.saveUsername(root.getElementById("username-input").value); });
+    on("username-input", "keydown", function (event) {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      void actions.saveUsername(event.currentTarget.value);
+    });
+    on("add-peer-btn", "click", function () { void actions.addPeer(root.getElementById("peer-input").value); });
+    on("peer-input", "keydown", function (event) {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      void actions.addPeer(event.currentTarget.value);
+    });
+    on("multiplayer-start-btn", "click", invoke("startMultiplayerGame"));
+    ["room-change-mode-btn", "game-change-mode-btn", "results-change-mode-btn"].forEach(function (id) { on(id, "click", invoke("returnToModeSelection")); });
+    on("timer", "click", function () {
+      var label = root.getElementById("timer").textContent;
+      if (label === "Start") void actions.startSoloGame();
+      else if (label.indexOf("Finish now") >= 0) void actions.finishGame("manual");
+    });
+    on("solo-play-again-btn", "click", invoke("resetSoloGame"));
+    on("back-room-btn", "click", invoke("backToRoom"));
+    return function removeBoggleUiListeners() {
+      while (removers.length) removers.pop()();
+    };
+  }
+
+  global.createBoggleRender = createBoggleRender;
+  global.wireBoggleUi = wireBoggleUi;
+})(globalThis);
+
+</script>
+<!-- Game lifecycle, arbitration, peer reports, and common-word effects. --><script>
+(function (global) {
+  "use strict";
+
+  const VERSION = 1;
+  const RULES = "csw24-boggle-v1";
+  const DURATION = 180000;
+  const ARBITRATION = 1000;
+  const START_LEAD = 500;
+  const MAX_SUBMISSIONS = 256;
+  const PUBKEY = /^[0-9a-f]{64}$/;
+
+  function createBoggleController(deps) {
+    const { engine, protocol, port, render, clock, timers, clipboard } = deps;
+    const state = {
+      mode: "select",
+      phase: "mode",
+      uiError: null,
+      busyAction: null,
+      myPubkeyHex: null,
+      myUsername: "",
+      roomScore: 0,
+      roomScoreGameId: null,
+      gameGeneration: 0,
+      lastOutboundTs: 0,
+      timerNowMonoMs: 0,
+      peers: new Map(),
+      activeGame: null,
+      seenStartGameIds: new Set(),
+      submittedWords: [],
+      localResult: null,
+      resultsByPeer: new Map(),
+      pendingCommonMessages: [],
+      commonWords: new Set(),
+      commonResponsesSent: new Set(),
+    };
+
+    let destroyed = false;
+    let opened = false;
+    let openPromise = null;
+    let unsubscribe = null;
+    let peerInitializing = false;
+    let peerEventRevision = 0;
+    let latestPeerEvent = null;
+    let lifecycleRevision = 0;
+    let arbitrationHandle = null;
+    let startHandle = null;
+    let deadlineHandle = null;
+    let tickHandle = null;
+    const completionPromises = new Map();
+
+    const draw = () => {
+      if (!destroyed) render.draw(state);
+    };
+    const errorText = (error, fallback) =>
+      error && typeof error.message === "string" && error.message.trim()
+        ? error.message
+        : fallback;
+    const connectedPeers = (except) =>
+      [...state.peers.entries()]
+        .filter(([key, peer]) => peer.connected && key !== except)
+        .map(([key]) => key);
+    const nextProtocolTs = () => {
+      state.lastOutboundTs = Math.max(
+        Math.trunc(clock.wallNow()),
+        state.lastOutboundTs + 1,
+      );
+      return state.lastOutboundTs;
+    };
+    const sameGame = (kind, gameId, generation) =>
+      !destroyed &&
+      state.activeGame !== null &&
+      state.activeGame.kind === kind &&
+      state.activeGame.gameId === gameId &&
+      state.activeGame.generation === generation;
+
+    function clearTimerHandles() {
+      if (arbitrationHandle !== null) timers.clearTimeout(arbitrationHandle);
+      if (startHandle !== null) timers.clearTimeout(startHandle);
+      if (deadlineHandle !== null) timers.clearTimeout(deadlineHandle);
+      if (tickHandle !== null) timers.clearInterval(tickHandle);
+      arbitrationHandle = startHandle = deadlineHandle = tickHandle = null;
+    }
+
+    function tick() {
+      if (!state.activeGame) return;
+      state.timerNowMonoMs = clock.monotonicNow();
+      draw();
+      if (
+        state.phase === "playing" &&
+        state.activeGame.localDeadlineMonoMs !== null &&
+        state.timerNowMonoMs >= state.activeGame.localDeadlineMonoMs
+      ) {
+        void Actions.finishGame("timeout");
+      }
+    }
+
+    function armCosmeticTicks() {
+      if (tickHandle !== null) timers.clearInterval(tickHandle);
+      state.timerNowMonoMs = clock.monotonicNow();
+      tickHandle = timers.setInterval(tick, 250);
+    }
+
+    function clearRound() {
+      clearTimerHandles();
+      state.activeGame = null;
+      state.submittedWords = [];
+      state.localResult = null;
+      state.resultsByPeer = new Map();
+      state.pendingCommonMessages = [];
+      state.commonWords = new Set();
+      state.commonResponsesSent = new Set();
+    }
+
+    function resetRoundForSelection() {
+      clearTimerHandles();
+      state.gameGeneration += 1;
+      state.submittedWords = [];
+      state.localResult = null;
+      state.resultsByPeer = new Map();
+      state.pendingCommonMessages = [];
+      state.commonWords = new Set();
+      state.commonResponsesSent = new Set();
+    }
+
+    async function requireSuccessfulSend(promise) {
+      const result = await promise;
+      if (Array.isArray(result)) {
+        const rejected = result.find((entry) => entry && entry.status === "rejected");
+        if (rejected) {
+          throw rejected.reason instanceof Error
+            ? rejected.reason
+            : new Error(String(rejected.reason || "Message delivery failed."));
+        }
+      }
+      return result;
+    }
+
+    async function reportSend(promise, fallback) {
+      try {
+        await requireSuccessfulSend(promise);
+      } catch (error) {
+        state.uiError = errorText(error, fallback);
+        draw();
+      }
+    }
+
+    function dispatchProfile(message, from) {
+      if (from === state.myPubkeyHex) return;
+      let peer = state.peers.get(from);
+      if (!peer) {
+        peer = {
+          connected: false, username: null, profileTs: null,
+          score: 0, scoreGameId: null, scoreTs: null,
+        };
+        state.peers.set(from, peer);
+      }
+      if (peer.profileTs !== null && message.ts <= peer.profileTs) return;
+      peer.username = message.name;
+      peer.profileTs = message.ts;
+      draw();
+    }
+
+    function dispatchScore(message, from) {
+      if (from === state.myPubkeyHex) return;
+      let peer = state.peers.get(from);
+      if (!peer) {
+        peer = {
+          connected: false, username: null, profileTs: null,
+          score: 0, scoreGameId: null, scoreTs: null,
+        };
+        state.peers.set(from, peer);
+      }
+      if (peer.scoreTs !== null && message.ts <= peer.scoreTs) return;
+      peer.score = message.score;
+      peer.scoreGameId = message.gameId;
+      peer.scoreTs = message.ts;
+      draw();
+    }
+
+    function pendingTuple(entry) {
+      return [
+        entry.from,
+        entry.message.sourceResultSender,
+        entry.message.sourceResultDigest,
+        entry.message.words.join("\u0000"),
+      ].join(":");
+    }
+
+    function tryApplyCommon(entry) {
+      const message = entry.message;
+      if (!state.localResult || !state.activeGame || message.gameId !== state.activeGame.gameId) {
+        return "pending";
+      }
+      let referenced;
+      if (message.sourceResultSender === state.myPubkeyHex) {
+        if (state.localResult.digest !== message.sourceResultDigest) return "drop";
+        referenced = state.localResult.correct;
+      } else {
+        const result = state.resultsByPeer.get(message.sourceResultSender);
+        if (!result) return "pending";
+        if (result.digest !== message.sourceResultDigest) return "drop";
+        referenced = result.words;
+      }
+      const referencedSet = new Set(referenced);
+      if (message.words.some((word) => !referencedSet.has(word))) return "drop";
+      const local = new Set(state.localResult.correct);
+      for (const word of message.words) if (local.has(word)) state.commonWords.add(word);
+      return "applied";
+    }
+
+    function reevaluatePendingCommon() {
+      let changed = false;
+      const remaining = [];
+      for (const entry of state.pendingCommonMessages) {
+        const outcome = tryApplyCommon(entry);
+        if (outcome === "pending") remaining.push(entry);
+        else changed = true;
+      }
+      state.pendingCommonMessages = remaining;
+      if (changed) draw();
+    }
+
+    function dispatchCommon(message, from) {
+      if (
+        state.mode !== "multiplayer" ||
+        !state.activeGame ||
+        message.gameId !== state.activeGame.gameId ||
+        from === message.sourceResultSender
+      ) return;
+      const entry = { from, message };
+      const outcome = tryApplyCommon(entry);
+      if (outcome === "pending") {
+        const tuple = pendingTuple(entry);
+        if (!state.pendingCommonMessages.some((item) => pendingTuple(item) === tuple)) {
+          state.pendingCommonMessages.push(entry);
+        }
+      }
+      if (outcome !== "drop") draw();
+    }
+
+    async function sendCommonResponse(from, result) {
+      if (!state.localResult || !state.activeGame) return;
+      const key = `${from}:${result.digest}`;
+      if (state.commonResponsesSent.has(key)) return;
+      const local = new Set(state.localResult.correct);
+      const words = result.words.filter((word) => local.has(word)).sort();
+      const message = protocol.common({
+        gameId: state.activeGame.gameId,
+        sourceResultSender: from,
+        sourceResultDigest: result.digest,
+        words,
+        ts: nextProtocolTs(),
+      });
+      dispatchCommon(message, state.myPubkeyHex);
+      state.commonResponsesSent.add(key);
+      draw();
+      await reportSend(
+        port.sendToMany(connectedPeers(), message),
+        "Could not send common-word response.",
+      );
+    }
+
+    async function dispatchResult(message, from) {
+      if (
+        from === state.myPubkeyHex ||
+        state.mode !== "multiplayer" ||
+        !state.activeGame ||
+        message.gameId !== state.activeGame.gameId
+      ) return;
+      const game = state.activeGame;
+      const gameId = game.gameId;
+      const generation = game.generation;
+      let solutions;
+      try {
+        solutions = await game.solverPromise;
+      } catch {
+        return;
+      }
+      if (!sameGame("multiplayer", gameId, generation)) return;
+      if (message.words.some((word) => !solutions.has(word))) return;
+      if (state.resultsByPeer.has(from)) return;
+      let digest;
+      try {
+        digest = await protocol.computeResultDigest({
+          gameId,
+          score: message.score,
+          words: message.words,
+        });
+      } catch {
+        return;
+      }
+      if (!sameGame("multiplayer", gameId, generation)) return;
+      if (digest !== message.digest || state.resultsByPeer.has(from)) return;
+      const result = {
+        words: message.words.slice(),
+        score: message.score,
+        digest: message.digest,
+        ts: message.ts,
+      };
+      state.resultsByPeer.set(from, result);
+      reevaluatePendingCommon();
+      draw();
+      if (state.localResult) await sendCommonResponse(from, result);
+    }
+
+    async function relayStart(message, envelopeSender) {
+      await reportSend(
+        port.sendToMany(connectedPeers(envelopeSender), message),
+        "Could not relay game start.",
+      );
+    }
+
+    function freezeSelection(gameId, generation) {
+      if (!sameGame("multiplayer", gameId, generation) || state.phase !== "scheduled") return;
+      const game = state.activeGame;
+      game.selectionFrozen = true;
+      const now = clock.monotonicNow();
+      game.localStartsAtMonoMs = now + START_LEAD;
+      game.localDeadlineMonoMs = game.localStartsAtMonoMs + DURATION;
+      state.timerNowMonoMs = now;
+      startHandle = timers.setTimeout(() => {
+        startHandle = null;
+        if (!sameGame("multiplayer", gameId, generation) || state.phase !== "scheduled") return;
+        state.phase = "playing";
+        state.timerNowMonoMs = clock.monotonicNow();
+        deadlineHandle = timers.setTimeout(() => {
+          deadlineHandle = null;
+          if (sameGame("multiplayer", gameId, generation)) void Actions.finishGame("timeout");
+        }, Math.max(0, game.localDeadlineMonoMs - clock.monotonicNow()));
+        draw();
+      }, Math.max(0, game.localStartsAtMonoMs - clock.monotonicNow()));
+      draw();
+    }
+
+    function selectCandidate(message, arbitrationEndsAt) {
+      resetRoundForSelection();
+      const generation = state.gameGeneration;
+      const solverPromise = Promise.resolve().then(() => engine.solve(message.board));
+      state.activeGame = {
+        kind: "multiplayer",
+        gameId: message.gameId,
+        board: message.board,
+        issuedAtMs: message.issuedAtMs,
+        durationMs: message.durationMs,
+        arbitrationEndsAtMonoMs: arbitrationEndsAt,
+        selectionFrozen: false,
+        localStartsAtMonoMs: null,
+        localDeadlineMonoMs: null,
+        rulesVersion: message.rulesVersion,
+        generation,
+        solverPromise,
+      };
+      state.phase = "scheduled";
+      arbitrationHandle = timers.setTimeout(() => {
+        arbitrationHandle = null;
+        freezeSelection(message.gameId, generation);
+      }, Math.max(0, arbitrationEndsAt - clock.monotonicNow()));
+      armCosmeticTicks();
+      draw();
+    }
+
+    async function acceptStart(message, envelopeSender, localInitial) {
+      if (state.mode !== "multiplayer") return;
+      const openArbitration =
+        state.phase === "scheduled" &&
+        state.activeGame &&
+        !state.activeGame.selectionFrozen;
+      if (state.phase !== "room" && !openArbitration) return;
+      if (state.seenStartGameIds.has(message.gameId)) return;
+      let computed;
+      try {
+        computed = await protocol.computeGameId({
+          board: message.board,
+          issuedAtMs: message.issuedAtMs,
+          durationMs: message.durationMs,
+          rulesVersion: message.rulesVersion,
+        });
+      } catch {
+        return;
+      }
+      const stillOpen =
+        state.mode === "multiplayer" &&
+        (state.phase === "room" ||
+          (state.phase === "scheduled" && state.activeGame && !state.activeGame.selectionFrozen));
+      if (!stillOpen || computed !== message.gameId || state.seenStartGameIds.has(message.gameId)) return;
+      state.seenStartGameIds.add(message.gameId);
+      void relayStart(message, localInitial ? null : envelopeSender);
+      if (state.phase === "room") {
+        selectCandidate(message, clock.monotonicNow() + ARBITRATION);
+      } else if (message.gameId < state.activeGame.gameId) {
+        selectCandidate(message, state.activeGame.arbitrationEndsAtMonoMs);
+      }
+    }
+
+    function validEnvelope(envelope) {
+      const from = String(envelope && envelope.fromPubkeyHex || "").toLowerCase();
+      const to = String(envelope && envelope.toPubkeyHex || "").toLowerCase();
+      return PUBKEY.test(from) && PUBKEY.test(to) && to === state.myPubkeyHex
+        ? { from, to }
+        : null;
+    }
+
+    function onMessage(envelope) {
+      if (destroyed || state.mode !== "multiplayer") return;
+      const normalized = validEnvelope(envelope);
+      if (!normalized) return;
+      let message;
+      try {
+        message = protocol.decode(envelope.payload);
+      } catch {
+        return;
+      }
+      if (!message || message.version !== VERSION) return;
+      switch (message.type) {
+        case "boggle/profile": dispatchProfile(message, normalized.from); break;
+        case "boggle/score": dispatchScore(message, normalized.from); break;
+        case "boggle/start": void acceptStart(message, normalized.from, false); break;
+        case "boggle/result": void dispatchResult(message, normalized.from); break;
+        case "boggle/common": dispatchCommon(message, normalized.from); break;
+      }
+    }
+
+    function announcePeer(pubkeyHex) {
+      if (state.myUsername.trim()) {
+        const profile = protocol.profile({ name: state.myUsername, ts: nextProtocolTs() });
+        void reportSend(port.sendTo(pubkeyHex, profile), "Could not announce username.");
+      }
+      const score = protocol.score({
+        score: state.roomScore,
+        gameId: state.roomScoreGameId,
+        ts: nextProtocolTs(),
+      });
+      void reportSend(port.sendTo(pubkeyHex, score), "Could not announce room score.");
+    }
+
+    function reconcilePeers(peerList) {
+      const incoming = new Set((peerList || []).map((peer) => String(peer.pubkeyHex).toLowerCase()));
+      for (const [key, peer] of state.peers) {
+        if (!incoming.has(key)) peer.connected = false;
+      }
+      for (const key of incoming) {
+        if (!PUBKEY.test(key) || key === state.myPubkeyHex) continue;
+        let peer = state.peers.get(key);
+        const newlyConnected = !peer || !peer.connected;
+        if (!peer) {
+          peer = {
+            connected: true, username: null, profileTs: null,
+            score: 0, scoreGameId: null, scoreTs: null,
+          };
+          state.peers.set(key, peer);
+        } else {
+          peer.connected = true;
+          if (newlyConnected) {
+            peer.profileTs = null;
+            peer.scoreTs = null;
+          }
+        }
+        if (newlyConnected) announcePeer(key);
+      }
+      draw();
+    }
+
+    function onPeers(peers) {
+      peerEventRevision += 1;
+      latestPeerEvent = peers;
+      if (!peerInitializing) reconcilePeers(peers);
+    }
+
+    function onTerminalFailure(failure) {
+      const key = String(failure.pubkeyHex || "");
+      const short = key.length > 12 ? `${key.slice(0, 6)}…${key.slice(-6)}` : key;
+      state.uiError = `Connection to ${short || "peer"} failed${failure.reason ? `: ${failure.reason}` : "."}`;
+      draw();
+    }
+
+    async function subscribeAndStabilize(token) {
+      if (unsubscribe) unsubscribe();
+      peerInitializing = true;
+      latestPeerEvent = null;
+      unsubscribe = port.subscribe({ onPeers, onMessage, onTerminalFailure });
+      for (;;) {
+        const revision = peerEventRevision;
+        const snapshot = await port.getPeers();
+        if (destroyed || token !== lifecycleRevision || state.mode !== "multiplayer") return false;
+        if (revision !== peerEventRevision) continue;
+        reconcilePeers(snapshot);
+        peerInitializing = false;
+        return true;
+      }
+    }
+
+    async function ensureOpen() {
+      if (opened) return;
+      if (!openPromise) {
+        openPromise = port.open().then((info) => {
+          opened = true;
+          state.myPubkeyHex = info.myPubkeyHex;
+          state.myUsername = info.storedUsername || "";
+        }).catch((error) => {
+          openPromise = null;
+          throw error;
+        });
+      }
+      await openPromise;
+    }
+
+    async function withBusy(name, operation) {
+      if (state.busyAction !== null) return;
+      state.busyAction = name;
+      draw();
+      try {
+        await operation();
+      } finally {
+        state.busyAction = null;
+        draw();
+      }
+    }
+
+    const Actions = {
+      chooseSolo() {
+        if (state.phase !== "mode") return;
+        state.mode = "solo";
+        state.phase = "ready";
+        state.uiError = null;
+        draw();
+      },
+
+      async startSoloGame() {
+        if (state.mode !== "solo" || state.phase !== "ready") return;
+        await withBusy("start", async () => {
+          clearRound();
+          state.gameGeneration += 1;
+          const now = clock.monotonicNow();
+          const board = engine.createBoard();
+          state.activeGame = {
+            kind: "solo", gameId: null, board, issuedAtMs: null,
+            durationMs: DURATION, arbitrationEndsAtMonoMs: null,
+            selectionFrozen: true, localStartsAtMonoMs: now,
+            localDeadlineMonoMs: now + DURATION, rulesVersion: RULES,
+            generation: state.gameGeneration,
+            solverPromise: Promise.resolve().then(() => engine.solve(board)),
+          };
+          state.timerNowMonoMs = now;
+          state.phase = "playing";
+          armCosmeticTicks();
+          deadlineHandle = timers.setTimeout(() => {
+            deadlineHandle = null;
+            void Actions.finishGame("timeout");
+          }, DURATION);
+        });
+      },
+
+      resetSoloGame() {
+        if (state.mode !== "solo" || state.phase !== "results") return;
+        clearRound();
+        state.phase = "ready";
+        state.uiError = null;
+        draw();
+      },
+
+      async enterMultiplayer() {
+        if (state.phase !== "mode") return;
+        await withBusy("multiplayer-init", async () => {
+          const token = ++lifecycleRevision;
+          try {
+            await ensureOpen();
+            if (destroyed || token !== lifecycleRevision || state.phase !== "mode") return;
+            state.mode = "multiplayer";
+            state.phase = "room";
+            await subscribeAndStabilize(token);
+            if (destroyed || token !== lifecycleRevision || state.mode !== "multiplayer") return;
+            state.uiError = null;
+          } catch (error) {
+            if (!destroyed && token === lifecycleRevision) {
+              if (unsubscribe) {
+                unsubscribe();
+                unsubscribe = null;
+              }
+              peerInitializing = false;
+              state.mode = "select";
+              state.phase = "mode";
+              state.uiError = errorText(error, "Multiplayer could not be initialized.");
+              render.showMultiplayerError(state.uiError);
+            }
+          }
+        });
+      },
+
+      async returnToModeSelection() {
+        const allowed =
+          (state.mode === "solo" && (state.phase === "ready" || state.phase === "results")) ||
+          (state.mode === "multiplayer" && state.phase === "room");
+        if (!allowed) return;
+        lifecycleRevision += 1;
+        if (state.mode === "multiplayer" && unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+          peerInitializing = false;
+        }
+        clearRound();
+        state.mode = "select";
+        state.phase = "mode";
+        state.uiError = null;
+        draw();
+      },
+
+      async copyPubkey() {
+        if (!opened || state.mode !== "multiplayer") return;
+        await withBusy("copy-pubkey", async () => {
+          try {
+            await clipboard.writeText(state.myPubkeyHex);
+            if (destroyed || state.mode !== "multiplayer") return;
+            state.uiError = null;
+          } catch (error) {
+            state.uiError = errorText(error, "Could not copy public key.");
+          }
+        });
+      },
+
+      async saveUsername(name) {
+        if (!opened || state.mode !== "multiplayer" || state.phase !== "room") return;
+        await withBusy("save-username", async () => {
+          try {
+            const normalized = Array.from(String(name).trim()).slice(0, 40).join("");
+            if (!normalized) throw new Error("Username cannot be empty.");
+            await port.saveUsername(normalized);
+            if (destroyed || state.mode !== "multiplayer" || state.phase !== "room") return;
+            state.myUsername = normalized;
+            const message = protocol.profile({ name: normalized, ts: nextProtocolTs() });
+            await requireSuccessfulSend(port.sendToMany(connectedPeers(), message));
+            if (destroyed || state.mode !== "multiplayer" || state.phase !== "room") return;
+            state.uiError = null;
+          } catch (error) {
+            state.uiError = errorText(error, "Could not save username.");
+          }
+        });
+      },
+
+      async addPeer(pubkeyHex) {
+        if (!opened || state.mode !== "multiplayer" || state.phase !== "room") return;
+        await withBusy("add-peer", async () => {
+          try {
+            await port.addPeer(String(pubkeyHex).trim().toLowerCase());
+            if (destroyed || state.mode !== "multiplayer" || state.phase !== "room") return;
+            state.uiError = null;
+          } catch (error) {
+            state.uiError = errorText(error, "Could not add peer.");
+          }
+        });
+      },
+
+      async startMultiplayerGame() {
+        if (state.mode !== "multiplayer" || state.phase !== "room") return;
+        await withBusy("start", async () => {
+          try {
+            const board = engine.createBoard();
+            const issuedAtMs = nextProtocolTs();
+            const descriptor = {
+              board, issuedAtMs, durationMs: DURATION, rulesVersion: RULES,
+            };
+            const gameId = await protocol.computeGameId(descriptor);
+            if (destroyed || state.mode !== "multiplayer" || state.phase !== "room") return;
+            const message = protocol.start({
+              gameId, ...descriptor, ts: nextProtocolTs(),
+            });
+            state.uiError = null;
+            await acceptStart(message, state.myPubkeyHex, true);
+          } catch (error) {
+            state.uiError = errorText(error, "Could not start multiplayer game.");
+          }
+        });
+      },
+
+      submitWord(word) {
+        if (state.phase !== "playing" || !state.activeGame) return;
+        if (state.submittedWords.length >= MAX_SUBMISSIONS) return;
+        state.submittedWords.push(String(word));
+        draw();
+      },
+
+      finishGame(reason) {
+        if (
+          (reason !== "manual" && reason !== "timeout") ||
+          !state.activeGame ||
+          state.phase !== "playing"
+        ) {
+          if (state.activeGame) {
+            const existing = completionPromises.get(state.activeGame.generation);
+            if (existing) return existing;
+          }
+          return Promise.resolve();
+        }
+        const game = state.activeGame;
+        const key = game.generation;
+        if (completionPromises.has(key)) return completionPromises.get(key);
+        const promise = withBusy("finish", async () => {
+          state.phase = "finishing";
+          if (deadlineHandle !== null) timers.clearTimeout(deadlineHandle);
+          deadlineHandle = null;
+          draw();
+          const solutions = await game.solverPromise;
+          if (!sameGame(game.kind, game.gameId, game.generation)) return;
+          const evaluated = engine.evaluate(state.submittedWords.slice(), solutions);
+          if (game.kind === "solo") {
+            state.localResult = {
+              correct: evaluated.correct, missed: evaluated.missed,
+              wrong: evaluated.wrong, duplicates: evaluated.duplicates,
+              score: evaluated.score, digest: null, sent: false,
+            };
+            state.phase = "results";
+            clearTimerHandles();
+            draw();
+            return;
+          }
+          const words = [...new Set(evaluated.correct)].sort();
+          const digest = await protocol.computeResultDigest({
+            gameId: game.gameId, score: evaluated.score, words,
+          });
+          if (!sameGame("multiplayer", game.gameId, game.generation)) return;
+          state.localResult = {
+            correct: evaluated.correct, missed: evaluated.missed,
+            wrong: evaluated.wrong, duplicates: evaluated.duplicates,
+            score: evaluated.score, digest, sent: false,
+          };
+          const message = protocol.result({
+            gameId: game.gameId, words, score: evaluated.score,
+            digest, ts: nextProtocolTs(),
+          });
+          state.localResult.sent = true;
+          const sendPromise = reportSend(
+            port.sendToMany(connectedPeers(), message),
+            "Could not send game result.",
+          );
+          for (const [from, result] of state.resultsByPeer) {
+            await sendCommonResponse(from, result);
+            if (!sameGame("multiplayer", game.gameId, game.generation)) return;
+          }
+          reevaluatePendingCommon();
+          state.phase = "results";
+          clearTimerHandles();
+          draw();
+          await sendPromise;
+        });
+        completionPromises.set(key, promise);
+        return promise;
+      },
+
+      async backToRoom() {
+        if (state.mode !== "multiplayer" || state.phase !== "results" || !state.activeGame) return;
+        await withBusy("back-to-room", async () => {
+          const gameId = state.activeGame.gameId;
+          const effective = state.resultsByPeer.size === 0 ? 0 : state.localResult.score;
+          state.roomScore = effective;
+          state.roomScoreGameId = gameId;
+          const message = protocol.score({
+            score: effective, gameId, ts: nextProtocolTs(),
+          });
+          const sendPromise = reportSend(
+            port.sendToMany(connectedPeers(), message),
+            "Could not broadcast room score.",
+          );
+          clearRound();
+          state.phase = "room";
+          draw();
+          await sendPromise;
+        });
+      },
+    };
+
+    return {
+      state,
+      Actions,
+      start() {
+        if (destroyed) return;
+        state.timerNowMonoMs = clock.monotonicNow();
+        draw();
+      },
+      async destroy() {
+        if (destroyed) return;
+        destroyed = true;
+        lifecycleRevision += 1;
+        clearTimerHandles();
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+        await port.close();
+      },
+    };
+  }
+
+  global.createBoggleController = createBoggleController;
+})(globalThis);
+
+</script>
+<!-- Existing word entry adapted to controller actions, followed by the sole bootstrap. --><script>
+(function () {
+  "use strict";
+
+  function createClipboardAdapter(document) {
+    return {
+      async writeText(value) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          await navigator.clipboard.writeText(String(value));
+          return;
+        }
+        const field = document.createElement("textarea");
+        field.value = String(value);
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.append(field);
+        field.select();
+        try {
+          if (!document.execCommand || !document.execCommand("copy")) {
+            throw new Error("Clipboard access is unavailable.");
+          }
+        } finally {
+          field.remove();
+        }
+      },
+    };
+  }
+
+  function wireBoggleInput(options) {
+    const document = options.document;
+    const controller = options.controller;
+    const board = document.getElementById("board");
+    const selector = document.getElementById("selector");
+    const inputs = Array.from(selector.children);
+    const tiles = Array.from(board.children);
+    const buttons = tiles.map((tile) => tile.firstElementChild);
+    const removers = [];
+    let activePointerId = null;
+    let tracedBoard = null;
+    let path = [];
+
+    function on(node, type, listener, options) {
+      node.addEventListener(type, listener, options);
+      removers.push(() => node.removeEventListener(type, listener, options));
+    }
+
+    function isPlaying() {
+      return controller.state.phase === "playing" && controller.state.activeGame !== null;
+    }
+
+    function normalizeWord(value) {
+      return String(value).trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 15);
+    }
+
+    function clearPath() {
+      for (const index of path) tiles[index].classList.remove("path");
+      path = [];
+      tracedBoard = null;
+    }
+
+    function resetSelector() {
+      inputs.forEach((input, index) => {
+        input.value = "";
+        input.readOnly = false;
+        input.classList.remove("q-choice");
+        input.style.display = index === 0 ? "" : "none";
+      });
+    }
+
+    function submit(value) {
+      const word = normalizeWord(value);
+      if (!isPlaying() || word.length < 3) return false;
+      controller.Actions.submitWord(word);
+      resetSelector();
+      return true;
+    }
+
+    function adjacent(first, second) {
+      const firstRow = Math.floor(first / 4);
+      const firstColumn = first % 4;
+      const secondRow = Math.floor(second / 4);
+      const secondColumn = second % 4;
+      return Math.max(
+        Math.abs(firstRow - secondRow),
+        Math.abs(firstColumn - secondColumn),
+      ) === 1;
+    }
+
+    function updateTraceLabel() {
+      if (!tracedBoard) return;
+      inputs[0].value = path.map((index) => tracedBoard[index]).join("");
+    }
+
+    function addTile(index) {
+      if (index < 0 || !tracedBoard) return;
+      const last = path[path.length - 1];
+      if (index === last) return;
+      if (path.length > 1 && index === path[path.length - 2]) {
+        tiles[path.pop()].classList.remove("path");
+        updateTraceLabel();
+        return;
+      }
+      if (path.includes(index) || (last !== undefined && !adjacent(last, index))) return;
+      path.push(index);
+      tiles[index].classList.add("path");
+      updateTraceLabel();
+    }
+
+    function tileIndexAt(clientX, clientY) {
+      const target = document.elementFromPoint(clientX, clientY);
+      const button = target && target.closest ? target.closest(".sensor") : null;
+      return button && board.contains(button) ? buttons.indexOf(button) : -1;
+    }
+
+    function offerQChoice(word) {
+      const withQu = word.replace(/Q/g, "QU");
+      inputs[0].value = word;
+      inputs[1].value = withQu;
+      inputs.forEach((input) => {
+        input.readOnly = true;
+        input.classList.add("q-choice");
+        input.style.display = "";
+      });
+      inputs[0].focus();
+    }
+
+    function finishTrace() {
+      if (!tracedBoard) return;
+      const word = path.map((index) => tracedBoard[index]).join("");
+      clearPath();
+      if (!isPlaying() || word.length < 3) {
+        resetSelector();
+      } else if (word.includes("Q")) {
+        offerQChoice(word);
+      } else {
+        submit(word);
+      }
+    }
+
+    on(board, "pointerdown", (event) => {
+      if (!isPlaying() || (event.button !== undefined && event.button !== 0)) return;
+      const button = event.target.closest && event.target.closest(".sensor");
+      const index = button && board.contains(button) ? buttons.indexOf(button) : -1;
+      if (index < 0) return;
+      resetSelector();
+      clearPath();
+      activePointerId = event.pointerId;
+      tracedBoard = controller.state.activeGame.board;
+      if (typeof board.setPointerCapture === "function") {
+        board.setPointerCapture(event.pointerId);
+      }
+      addTile(index);
+      event.preventDefault();
+    });
+
+    on(board, "pointermove", (event) => {
+      if (event.pointerId !== activePointerId) return;
+      addTile(tileIndexAt(event.clientX, event.clientY));
+      event.preventDefault();
+    });
+
+    on(board, "pointerup", (event) => {
+      if (event.pointerId !== activePointerId) return;
+      activePointerId = null;
+      finishTrace();
+      event.preventDefault();
+    });
+
+    on(board, "pointercancel", (event) => {
+      if (event.pointerId !== activePointerId) return;
+      activePointerId = null;
+      clearPath();
+      resetSelector();
+    });
+
+    on(board, "lostpointercapture", (event) => {
+      if (event.pointerId !== activePointerId) return;
+      activePointerId = null;
+      finishTrace();
+    });
+
+    inputs.forEach((input) => {
+      input.maxLength = 15;
+      on(input, "input", () => {
+        if (input.readOnly) return;
+        const normalized = normalizeWord(input.value);
+        if (input.value !== normalized) input.value = normalized;
+      });
+      on(input, "click", () => {
+        if (input.classList.contains("q-choice")) submit(input.value);
+      });
+      on(input, "keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        submit(input.value);
+      });
+    });
+
+    return function removeBoggleInputListeners() {
+      activePointerId = null;
+      clearPath();
+      while (removers.length) removers.pop()();
+    };
+  }
+
+  const port = createMultiplayerPort({
+    window,
+    document,
+    protocol: BoggleProtocol,
+  });
+  const render = createBoggleRender(document);
+  const controller = createBoggleController({
+    engine: BoggleEngine,
+    protocol: BoggleProtocol,
+    port,
+    render,
+    clock: {
+      wallNow: () => Date.now(),
+      monotonicNow: () => performance.now(),
+    },
+    timers: {
+      setTimeout: window.setTimeout.bind(window),
+      clearTimeout: window.clearTimeout.bind(window),
+      setInterval: window.setInterval.bind(window),
+      clearInterval: window.clearInterval.bind(window),
+    },
+    clipboard: createClipboardAdapter(document),
+  });
+  const removeUiListeners = wireBoggleUi({
+    root: document,
+    actions: controller.Actions,
+  });
+  const removeInputListeners = wireBoggleInput({ document, controller });
+
+  controller.start();
+
+  function onPageHide(event) {
+    if (event.persisted) return;
+    window.removeEventListener("pagehide", onPageHide);
+    removeUiListeners();
+    removeInputListeners();
+    void controller.destroy().catch(() => {});
+  }
+  window.addEventListener("pagehide", onPageHide);
+}());
 
 </script>
 </body>
