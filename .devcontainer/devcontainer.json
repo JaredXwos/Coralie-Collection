@@ -1,5 +1,5 @@
 {
-  "name": "Zed Development",
+  "name": "Coralie Dev Container",
   "image": "mcr.microsoft.com/devcontainers/base:bookworm",
   "remoteUser": "vscode",
   "features": {
@@ -7,7 +7,14 @@
       "version": "lts"
     }
   },
-  "postCreateCommand": "npm install -g @openai/codex",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteEnv": {
+    "GITHUB_PAT_TOKEN": "${localEnv:GITHUB_PAT_TOKEN}",
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
+  },
+  "mounts": [
+    "source=${localEnv:USERPROFILE}/.codex-devcontainer,target=/home/vscode/.codex,type=bind"
+  ],
   "runArgs": [
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges"
