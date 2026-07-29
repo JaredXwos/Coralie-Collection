@@ -35,5 +35,14 @@
       "http"
     ],
     "category": "Utility"
+  },
+  {
+    "id": "boggle",
+    "title": "Boggle",
+    "description": "A self-contained Boggle word game with a timed board, word tracing, scoring, and an embedded dictionary.",
+    "file": "boggle.html",
+    "build": "boggle-standalone",
+    "capabilities": [],
+    "category": "Game"
   }
 ]
