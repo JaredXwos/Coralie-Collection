@@ -393,6 +393,38 @@
   .a-sep { color: var(--text-faint); }
   .a-votes.correct { color: var(--accent); }
 
+  /* Make better use of horizontal space without changing the compact,
+     single-column portrait layout. Keep each entry comfortably wide,
+     adding columns only when the viewport can support them. */
+  @media (orientation: landscape) {
+    #questions-scroll,
+    #answers-scroll {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      column-gap: clamp(20px, 4vw, 48px);
+    }
+
+    .question:last-child,
+    .answer:last-child {
+      border-bottom: 1px solid var(--border);
+    }
+  }
+
+  @media (orientation: landscape) and (min-width: 1100px) {
+    #questions-scroll,
+    #answers-scroll {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (orientation: landscape) and (min-width: 1480px) {
+    #questions-scroll,
+    #answers-scroll {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
   /* ============================================================
      PEERING OVERLAY — reachable from Menu, not itself a .screen
      (it's UiState-driven, layered on top rather than swapped to)
