@@ -12,6 +12,7 @@ coverage/
 *.log
 
 # Editor and operating-system files
+.zed/
 .DS_Store
 Thumbs.db
 *.swp
