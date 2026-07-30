@@ -8,7 +8,7 @@
 <meta name="description" content="A self-contained three-minute Boggle game for solo or Coralie mesh multiplayer play.">
 <title>Boggle</title>
 <!-- Coralie Android capabilities: mesh, storage -->
-<!-- Coralie host bootstrap: ./Coralie/v2/host.js (loaded lazily for Multiplayer) -->
+<!-- Coralie host bootstrap: ./Coralie/v2/host.js -->
 
 <!-- This HTML made was for Nanyang Technological University Hall 6 word games team, with strong support from the Visual Arts Society Legacy group.  - Jih How -->
 
@@ -281316,7 +281316,8 @@ const lexicon = [
 })(globalThis);
 
 </script>
-<!-- Lazy Coralie API v2 adapter; host.js is loaded only after Multiplayer is chosen. --><script>
+<script src="./Coralie/v2/host.js"></script>
+<!-- Coralie API v2 adapter. --><script>
 (function (global) {
   "use strict";
 
@@ -281334,6 +281335,7 @@ const lexicon = [
     const doc = options.document;
     const protocol = options.protocol;
     let host = null;
+    let hostKind = null;
     let openPromise = null;
     let openResult = null;
     let closePromise = null;
@@ -281378,33 +281380,22 @@ const lexicon = [
       };
     }
 
-    function loadHostScript() {
-      return new Promise((resolve, reject) => {
-        const script = doc.createElement("script");
-        script.src = "./Coralie/v2/host.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load Coralie host"));
-        const parent = doc.head || doc.documentElement || doc.body;
-        if (!parent || typeof parent.appendChild !== "function") {
-          reject(new Error("Cannot load Coralie host script"));
-          return;
-        }
-        parent.appendChild(script);
-      });
-    }
-
-    function validateHost(candidate) {
+    async function validateHost(candidate) {
       if (!candidate) throw new Error("window.Coralie is unavailable");
       for (const method of REQUIRED_METHODS) {
         if (typeof candidate[method] !== "function") {
           throw new Error("window.Coralie is missing API v2 method: " + method);
         }
       }
-      if (Number(candidate.apiVersion()) !== 2) {
-        throw new Error("Unsupported Coralie API version: " + String(candidate.apiVersion()));
+      const apiVersion = await candidate.apiVersion();
+      if (Number(apiVersion) !== 2) {
+        throw new Error("Unsupported Coralie API version: " + String(apiVersion));
       }
-      return candidate;
+      const validatedHostKind = await candidate.hostKind();
+      if (typeof validatedHostKind !== "string" || !validatedHostKind) {
+        throw new Error("Coralie returned an invalid host kind");
+      }
+      return { host: candidate, hostKind: validatedHostKind };
     }
 
     function requireOpen() {
@@ -281413,17 +281404,18 @@ const lexicon = [
     }
 
     async function initialize() {
-      if (!win.Coralie) await loadHostScript();
-      const candidate = validateHost(win.Coralie);
+      const validated = await validateHost(win.Coralie);
+      const candidate = validated.host;
       const myPubkeyHex = String(await candidate.getPubkey()).toLowerCase();
       if (!validPubkey(myPubkeyHex)) throw new Error("Coralie returned an invalid public key");
       const stored = await candidate.storageGetItem("username");
       const result = Object.freeze({
         myPubkeyHex,
         storedUsername: stored == null ? null : String(stored),
-        hostKind: String(await candidate.hostKind()),
+        hostKind: validated.hostKind,
       });
       host = candidate;
+      hostKind = validated.hostKind;
       openResult = result;
       return result;
     }
@@ -281434,6 +281426,7 @@ const lexicon = [
         if (openPromise) return openPromise;
         openPromise = initialize().catch(error => {
           host = null;
+          hostKind = null;
           openResult = null;
           openPromise = null;
           throw error;
@@ -281498,7 +281491,7 @@ const lexicon = [
       close() {
         if (closePromise) return closePromise;
         closePromise = Promise.resolve().then(async () => {
-          if (host && String(host.hostKind()) === "browser") await host.close();
+          if (host && hostKind === "browser") await host.close();
         });
         return closePromise;
       },

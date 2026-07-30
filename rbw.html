@@ -1188,11 +1188,12 @@ function messageApplies(msg, state) {
 // CORALIE API V2 HOST + STORAGE
 // ============================================================
 let coralieHost = null;
+let coralieHostKind = null;
 const coralieUnsubscribers = [];
 const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder();
 
-function requireCoralieHost() {
+async function requireCoralieHost() {
   const host = window.Coralie;
   const requiredMethods = [
     "apiVersion",
@@ -1221,11 +1222,18 @@ function requireCoralieHost() {
     }
   }
 
-  if (Number(host.apiVersion()) !== 2) {
+  const apiVersion = await host.apiVersion();
+  if (Number(apiVersion) !== 2) {
     throw new Error(
-      "Unsupported Coralie API version: " + String(host.apiVersion())
+      "Unsupported Coralie API version: " + String(apiVersion)
     );
   }
+
+  const hostKind = await host.hostKind();
+  if (typeof hostKind !== "string" || !hostKind.trim()) {
+    throw new Error("Coralie hostKind() returned an invalid host kind");
+  }
+  coralieHostKind = hostKind;
 
   return host;
 }
@@ -3079,7 +3087,7 @@ async function init() {
   wireDelegatedListeners();
 
   Boot?.stage("Connecting to Coralie host…");
-  coralieHost = requireCoralieHost();
+  coralieHost = await requireCoralieHost();
 
   Boot?.stage("Loading node identity…");
   GameState.myPubkeyHex = await coralieHost.getPubkey();
@@ -3113,7 +3121,7 @@ window.addEventListener("pagehide", (event) => {
     try { coralieUnsubscribers.pop()(); } catch {}
   }
 
-  if (coralieHost && String(coralieHost.hostKind()) === "browser") {
+  if (coralieHost && coralieHostKind === "browser") {
     void Promise.resolve(coralieHost.close()).catch((error) => {
       console.error("[RBW] Failed to close browser Coralie host", error);
     });

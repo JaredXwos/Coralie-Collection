@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Debug Room</title>
 <!-- Coralie Android capabilities: mesh, storage -->
-<!-- Coralie host bootstrap: /Coralie/v2/host.js -->
+<!-- Coralie host bootstrap: ./Coralie/v2/host.js -->
 <style>
   :root {
     --bg: #0b1620;
@@ -286,6 +286,7 @@
 
   // ---- state ----
   let coralie = null;
+  let coralieHostKind = null;
   let myPubkeyHex = null;
   let myUsername = null;
   const peers = new Map(); // pubkeyHex -> username|null
@@ -330,7 +331,7 @@
     return error instanceof Error ? error.message : String(error);
   }
 
-  function requireCoralieHost() {
+  async function requireCoralieHost() {
     const host = window.Coralie;
     const requiredMethods = [
       "apiVersion",
@@ -358,13 +359,19 @@
       }
     }
 
-    if (Number(host.apiVersion()) !== 2) {
+    const apiVersion = await host.apiVersion();
+    if (Number(apiVersion) !== 2) {
       throw new Error(
-        "Unsupported Coralie API version: " + String(host.apiVersion())
+        "Unsupported Coralie API version: " + String(apiVersion)
       );
     }
 
-    return host;
+    const hostKind = await host.hostKind();
+    if (typeof hostKind !== "string" || !hostKind) {
+      throw new Error("Coralie returned an invalid host kind");
+    }
+
+    return { host, hostKind };
   }
 
   function normalizePeers(value) {
@@ -712,7 +719,9 @@
     log("info", "Coralie Room initialized");
 
     try {
-      coralie = requireCoralieHost();
+      const validatedHost = await requireCoralieHost();
+      coralie = validatedHost.host;
+      coralieHostKind = validatedHost.hostKind;
       await loadUsername();
       myPubkeyHex = await coralie.getPubkey();
       el.myPubkey.textContent = myPubkeyHex;
@@ -751,7 +760,7 @@
       }
     }
 
-    if (coralie) {
+    if (coralie && coralieHostKind === "browser") {
       void Promise.resolve(coralie.close()).catch(function (error) {
         console.error("Failed to close Coralie host:", error);
       });
