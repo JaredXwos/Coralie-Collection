@@ -9,7 +9,6 @@
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "remoteEnv": {
-    "GITHUB_PAT_TOKEN": "${localEnv:GITHUB_PAT_TOKEN}",
     "PATH": "${containerEnv:PATH}:/home/vscode/.local/bin"
   },
   "mounts": [

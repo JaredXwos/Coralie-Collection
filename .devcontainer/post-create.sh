@@ -16,15 +16,12 @@ export PATH="${UV_BIN_DIRECTORY}:${PATH}"
 
 uv tool install --python 3.13 serena-agent
 serena init
-serena setup codex
 
 if codex mcp get github >/dev/null 2>&1; then
   codex mcp remove github
 fi
 
-codex mcp add github \
-  --url https://api.githubcopilot.com/mcp/ \
-  --bearer-token-env-var GITHUB_PAT_TOKEN
+serena setup codex
 
 if ! git config --global --get-all safe.directory |
   grep -Fxq "${SAFE_DIRECTORY}"; then
