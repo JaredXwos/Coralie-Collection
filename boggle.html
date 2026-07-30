@@ -281813,6 +281813,7 @@ const lexicon = [
 
   function createBoggleController(deps) {
     const { engine, protocol, port, render, clock, timers, clipboard } = deps;
+    const logger = deps.logger || null;
     const state = {
       mode: "select",
       phase: "mode",
@@ -281859,6 +281860,18 @@ const lexicon = [
       error && typeof error.message === "string" && error.message.trim()
         ? error.message
         : fallback;
+    const shortId = (value) => {
+      const text = String(value || "");
+      return text.length > 12 ? `${text.slice(0, 6)}…${text.slice(-6)}` : text || null;
+    };
+    const diagnostic = (level, event, details) => {
+      if (!logger) return;
+      const write = typeof logger[level] === "function"
+        ? logger[level]
+        : logger.log;
+      if (typeof write !== "function") return;
+      write.call(logger, `[Boggle multiplayer] ${event}`, details || {});
+    };
     const connectedPeers = (except) =>
       [...state.peers.entries()]
         .filter(([key, peer]) => peer.connected && key !== except)
@@ -281953,6 +281966,12 @@ const lexicon = [
         await requireSuccessfulSend(promise);
       } catch (error) {
         state.uiError = errorText(error, fallback);
+        diagnostic("warn", "send failed", {
+          operation: fallback,
+          error: state.uiError,
+          phase: state.phase,
+          gameId: shortId(state.activeGame && state.activeGame.gameId),
+        });
         draw();
       }
     }
@@ -282044,6 +282063,11 @@ const lexicon = [
         message.sourceResultDigest !== state.localResult.digest
       ) return;
       state.resultAcknowledgedBy.add(entry.from);
+      diagnostic("info", "local result acknowledged", {
+        from: shortId(entry.from),
+        gameId: shortId(message.gameId),
+        acknowledged: state.resultAcknowledgedBy.size,
+      });
       armResultRetry();
     }
 
@@ -282082,6 +282106,13 @@ const lexicon = [
       dispatchCommon(message, state.myPubkeyHex);
       state.commonResponsesSent.add(key);
       draw();
+      diagnostic("info", "sending result acknowledgement", {
+        to: shortId(from),
+        gameId: shortId(state.activeGame.gameId),
+        score: result.score,
+        wordCount: result.words.length,
+        forced: !!forceResend,
+      });
       await reportSend(
         port.sendToMany([from], message),
         "Could not send common-word response.",
@@ -282121,6 +282152,12 @@ const lexicon = [
       const peers = pendingResultPeers();
       const message = peers.length ? localResultMessage() : null;
       if (!message) return;
+      diagnostic("info", "retrying local result", {
+        gameId: shortId(message.gameId),
+        recipients: peers.map(shortId),
+        score: message.score,
+        wordCount: message.words.length,
+      });
       await reportSend(
         port.sendToMany(peers, message),
         "Could not send game result.",
@@ -282148,7 +282185,17 @@ const lexicon = [
         state.mode !== "multiplayer" ||
         !state.activeGame ||
         message.gameId !== state.activeGame.gameId
-      ) return;
+      ) {
+        diagnostic("warn", "result rejected before validation", {
+          from: shortId(from),
+          messageGameId: shortId(message.gameId),
+          activeGameId: shortId(state.activeGame && state.activeGame.gameId),
+          mode: state.mode,
+          phase: state.phase,
+          selfMessage: from === state.myPubkeyHex,
+        });
+        return;
+      }
       const game = state.activeGame;
       const gameId = game.gameId;
       const generation = game.generation;
@@ -282156,10 +282203,21 @@ const lexicon = [
       try {
         solutions = await game.solverPromise;
       } catch {
+        diagnostic("warn", "result rejected because solver failed", {
+          from: shortId(from),
+          gameId: shortId(gameId),
+        });
         return;
       }
       if (!sameGame("multiplayer", gameId, generation)) return;
-      if (message.words.some((word) => !solutions.has(word))) return;
+      if (message.words.some((word) => !solutions.has(word))) {
+        diagnostic("warn", "result rejected because a reported word is invalid", {
+          from: shortId(from),
+          gameId: shortId(gameId),
+          wordCount: message.words.length,
+        });
+        return;
+      }
       const existing = state.resultsByPeer.get(from);
       if (existing) {
         if (
@@ -282181,10 +282239,22 @@ const lexicon = [
           words: message.words,
         });
       } catch {
+        diagnostic("warn", "result rejected because digest computation failed", {
+          from: shortId(from),
+          gameId: shortId(gameId),
+        });
         return;
       }
       if (!sameGame("multiplayer", gameId, generation)) return;
-      if (digest !== message.digest || state.resultsByPeer.has(from)) return;
+      if (digest !== message.digest || state.resultsByPeer.has(from)) {
+        diagnostic("warn", "result rejected because its digest or sender changed", {
+          from: shortId(from),
+          gameId: shortId(gameId),
+          digestMatches: digest === message.digest,
+          senderAlreadyStored: state.resultsByPeer.has(from),
+        });
+        return;
+      }
       const result = {
         words: message.words.slice(),
         score: message.score,
@@ -282192,6 +282262,13 @@ const lexicon = [
         ts: message.ts,
       };
       state.resultsByPeer.set(from, result);
+      diagnostic("info", "player result accepted", {
+        from: shortId(from),
+        gameId: shortId(gameId),
+        score: result.score,
+        wordCount: result.words.length,
+        reportCount: state.resultsByPeer.size,
+      });
       reevaluatePendingCommon();
       draw();
       if (state.localResult) await sendCommonResponse(from, result);
@@ -282302,14 +282379,37 @@ const lexicon = [
     function onMessage(envelope) {
       if (destroyed || state.mode !== "multiplayer") return;
       const normalized = validEnvelope(envelope);
-      if (!normalized) return;
+      if (!normalized) {
+        diagnostic("warn", "message envelope rejected", {
+          from: shortId(envelope && envelope.fromPubkeyHex),
+          to: shortId(envelope && envelope.toPubkeyHex),
+          expectedTo: shortId(state.myPubkeyHex),
+        });
+        return;
+      }
       let message;
       try {
         message = protocol.decode(envelope.payload);
       } catch {
+        diagnostic("warn", "message decode threw", {
+          from: shortId(normalized.from),
+          payloadBytes: envelope && envelope.payload && envelope.payload.byteLength,
+        });
         return;
       }
-      if (!message || message.version !== VERSION) return;
+      if (!message || message.version !== VERSION) {
+        diagnostic("warn", "message payload rejected", {
+          from: shortId(normalized.from),
+          payloadBytes: envelope && envelope.payload && envelope.payload.byteLength,
+        });
+        return;
+      }
+      diagnostic("info", "message received", {
+        from: shortId(normalized.from),
+        type: message.type,
+        gameId: shortId(message.gameId),
+        phase: state.phase,
+      });
       switch (message.type) {
         case "boggle/profile": dispatchProfile(message, normalized.from); break;
         case "boggle/score": dispatchScore(message, normalized.from); break;
@@ -282362,6 +282462,12 @@ const lexicon = [
           state.activeGame.kind === "multiplayer"
         ) armResultRetry();
       }
+      diagnostic("info", "peer snapshot reconciled", {
+        connected: connectedPeers().map(shortId),
+        cachedPeerCount: state.peers.size,
+        phase: state.phase,
+        gameId: shortId(state.activeGame && state.activeGame.gameId),
+      });
       draw();
     }
 
@@ -282375,6 +282481,13 @@ const lexicon = [
       const key = String(failure.pubkeyHex || "");
       const short = key.length > 12 ? `${key.slice(0, 6)}…${key.slice(-6)}` : key;
       state.uiError = `Connection to ${short || "peer"} failed${failure.reason ? `: ${failure.reason}` : "."}`;
+      diagnostic("warn", "peer connection reached terminal failure", {
+        peer: shortId(key),
+        attemptCount: failure.attemptCount,
+        reason: failure.reason || null,
+        phase: state.phase,
+        gameId: shortId(state.activeGame && state.activeGame.gameId),
+      });
       draw();
     }
 
@@ -282401,7 +282514,14 @@ const lexicon = [
           opened = true;
           state.myPubkeyHex = info.myPubkeyHex;
           state.myUsername = info.storedUsername || "";
+          diagnostic("info", "Coralie host opened", {
+            hostKind: info.hostKind,
+            localPeer: shortId(info.myPubkeyHex),
+          });
         }).catch((error) => {
+          diagnostic("warn", "Coralie host failed to open", {
+            error: errorText(error, "Unknown host initialization failure."),
+          });
           openPromise = null;
           throw error;
         });
@@ -282629,8 +282749,17 @@ const lexicon = [
           };
           const message = localResultMessage();
           state.localResult.sent = true;
+          const recipients = pendingResultPeers();
+          diagnostic("info", "sending local result", {
+            gameId: shortId(message.gameId),
+            recipients: recipients.map(shortId),
+            retainedParticipants: game.participantPubkeys.map(shortId),
+            connectedPeers: connectedPeers().map(shortId),
+            score: message.score,
+            wordCount: message.words.length,
+          });
           const sendPromise = reportSend(
-            port.sendToMany(pendingResultPeers(), message),
+            port.sendToMany(recipients, message),
             "Could not send game result.",
           );
           for (const [from, result] of state.resultsByPeer) {
@@ -282925,6 +283054,7 @@ const lexicon = [
       clearInterval: window.clearInterval.bind(window),
     },
     clipboard: createClipboardAdapter(document),
+    logger: console,
   });
   const removeUiListeners = wireBoggleUi({
     root: document,
