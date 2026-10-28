@@ -2,7 +2,9 @@
 
 This repository is a collection of small HTML applications built for Coralie. Each app is designed to remain easy to open, inspect, share, and run, with most of its interface and application logic contained in a single HTML file.
 
-Open `index.html` to browse the collection. The catalogue is defined in `pages.json`.
+**[Browse the collection online](https://jaredxwos.github.io/Coralie-Collection/)** — hosted on GitHub Pages.
+
+To browse locally, open `index.html`. The catalogue is defined in `pages.json`.
 
 ## What is Coralie?
 
