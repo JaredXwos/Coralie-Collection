@@ -280871,10 +280871,33 @@ body.game-viewport {
   }
 }
 @media (orientation: landscape) and (min-width: 561px) {
-  .game-viewport .game-screen {
-    grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
-    grid-template-rows: minmax(0, 1fr);
+  .game-viewport .boggle-app {
+    display: grid;
+    place-items: center;
+    --landscape-gap: clamp(.75rem, 1.5vw, 1.25rem);
+    --landscape-board-size: min(
+      640px,
+      calc(var(--play-height, 100dvh) - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),
+      calc((min(100vw, 1180px) - 1rem - env(safe-area-inset-left) - env(safe-area-inset-right) - var(--landscape-gap)) / 1.85)
+    );
   }
+  .game-viewport .game-screen {
+    width: min(100%, calc(var(--landscape-board-size) * 1.85 + var(--landscape-gap)));
+    height: var(--landscape-board-size);
+    grid-template-columns: var(--landscape-board-size) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--landscape-gap);
+  }
+  .game-viewport .board {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    margin: 0;
+  }
+  .game-viewport .game-panel { gap: .5rem; }
+  .game-viewport .col { padding: .4rem; }
+  .game-viewport .words { font-size: clamp(.75rem, 1.2vw, .95rem); }
 }
 </style>
 </head>
