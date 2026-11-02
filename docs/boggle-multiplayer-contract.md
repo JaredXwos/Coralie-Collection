@@ -1,7 +1,7 @@
 # Boggle Multiplayer Interface Contract
 
 - Status: **FROZEN**
-- Contract version: **1.0.0**
+- Contract version: **1.0.1**
 - Protocol version: **1**
 - Frozen: **2026-07-29**
 
@@ -371,8 +371,6 @@ const El = {
     timer: document.getElementById("timer"),
     selector: document.getElementById("selector"),
     paper: document.getElementById("paper"),
-    modeLabel: document.getElementById("game-mode-label"),
-    changeModeButton: document.getElementById("game-change-mode-btn"),
   },
 
   results: {
@@ -430,7 +428,7 @@ Action phase rules:
 1. `chooseSolo` enters Solo `ready` without touching Coralie.
 2. `startSoloGame` is accepted only from Solo `ready`.
 3. `resetSoloGame` is accepted only from Solo `results` and returns to `ready`.
-4. `returnToModeSelection` is accepted only from Solo `ready`, Solo `results`,
+4. `returnToModeSelection` is accepted only from Solo `results`
    or Multiplayer `room`. It never abandons an active game. Leaving a
    Multiplayer room removes Coralie event subscriptions but does not close the
    host; entering Multiplayer again resubscribes before taking a fresh peer
@@ -470,6 +468,10 @@ const Render = {
 ```
 
 `Render.draw` selects one specialized renderer from `mode` and `phase`.
+The game screen has no heading, mode label, instructions, or mode-change control.
+While it is visible (including Solo ready), document scrolling is locked and the
+board, compact timer, word/Q strip, and 30-word paper fit the visible viewport.
+Other screens retain normal document scrolling.
 Specialized renderers are state-to-DOM operations and do not mutate state.
 
 Screen mapping is fixed:
@@ -488,7 +490,7 @@ The shared `#timer` control maps by state:
 | Solo `ready` | `Start` | `Actions.startSoloGame()` | Yes |
 | Multiplayer `scheduled`, arbitration open | `Choosing game…` | None | No |
 | Multiplayer `scheduled`, selection frozen | `Starts in N…`, derived from state timestamps below | None | No |
-| Either mode `playing` | Remaining time plus `Finish now` affordance | `Actions.finishGame("manual")` | Yes |
+| Either mode `playing` | Remaining time; accessible label/title describes `Finish now` | `Actions.finishGame("manual")` | Yes |
 | Either mode `finishing` | `Checking…` | None | No |
 
 Mode-specific controls are also fixed:
@@ -496,7 +498,7 @@ Mode-specific controls are also fixed:
 1. `#back-room-btn` is visible only for Multiplayer `results`.
 2. `#solo-play-again-btn` is visible only for Solo `results` and invokes
    `Actions.resetSoloGame()`.
-3. A mode-change button is visible only in Solo `ready`, Solo `results`, or
+3. A mode-change button is visible only in Solo `results` or
    Multiplayer `room`. It invokes `Actions.returnToModeSelection()`.
 4. Result controls that do not apply to the selected mode are hidden, not just
    disabled.
