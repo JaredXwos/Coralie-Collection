@@ -283022,20 +283022,23 @@ body.game-viewport {
 
     function insideSwipeHitZone(button, clientX, clientY) {
       const rect = button.getBoundingClientRect();
-      const horizontalInset = rect.width / 3;
-      const verticalInset = rect.height / 3;
+      // Inset one-sixth on each edge: the central two-thirds registers swipes.
+      const horizontalInset = rect.width / 6;
+      const verticalInset = rect.height / 6;
       return clientX >= rect.left + horizontalInset &&
         clientX <= rect.right - horizontalInset &&
         clientY >= rect.top + verticalInset &&
         clientY <= rect.bottom - verticalInset;
     }
 
-    function tileIndexAt(clientX, clientY) {
+    function tileIndexAt(clientX, clientY, initial = false) {
       const target = document.elementFromPoint(clientX, clientY);
-      const button = target && target.closest ? target.closest(".sensor") : null;
-      return button && board.contains(button) &&
-        insideSwipeHitZone(button, clientX, clientY)
-        ? buttons.indexOf(button)
+      const tile = target && target.closest ? target.closest(".die") : null;
+      const index = tiles.indexOf(tile);
+      // Starting a word accepts the entire die, including its border.
+      return index >= 0 && board.contains(tile) &&
+        (initial || insideSwipeHitZone(buttons[index], clientX, clientY))
+        ? index
         : -1;
     }
 
@@ -283071,7 +283074,7 @@ body.game-viewport {
 
     on(board, "pointerdown", (event) => {
       if (!isPlaying() || (event.button !== undefined && event.button !== 0)) return;
-      const index = tileIndexAt(event.clientX, event.clientY);
+      const index = tileIndexAt(event.clientX, event.clientY, true);
       if (index < 0) return;
       resetSelector();
       clearPath();
