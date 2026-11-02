@@ -281002,11 +281002,11 @@ body.game-viewport {
       <div class="score-card"><span>Final score</span><strong id="results-score">0</strong></div>
     </header>
     <div class="results-grid">
-      <section class="result-card correct"><div class="result-heading"><h2>Correct</h2><span class="result-dot"></span></div><ul id="correct-words" class="word-list"></ul></section>
-      <section class="result-card common"><div class="result-heading"><h2>Common</h2><span class="aesthetic-label">Score unchanged</span></div><ul id="common-words" class="word-list" aria-live="polite"></ul></section>
-      <section id="missed-card" class="result-card missed"><div class="result-heading"><h2>Missed</h2></div><ul id="missed-words" class="word-list"></ul></section>
-      <section class="result-card wrong"><div class="result-heading"><h2>Wrong</h2></div><ul id="wrong-words" class="word-list"></ul></section>
-      <section class="result-card duplicate"><div class="result-heading"><h2>Duplicates</h2></div><ul id="duplicate-words" class="word-list"></ul></section>
+      <section class="result-card correct"><div class="result-heading"><h2>Correct</h2><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="correct-words" class="word-list"></ul></section>
+      <section class="result-card common"><div class="result-heading"><h2>Common</h2><span class="aesthetic-label">Score unchanged</span><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="common-words" class="word-list" aria-live="polite"></ul></section>
+      <section id="missed-card" class="result-card missed"><div class="result-heading"><h2>Missed</h2><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="missed-words" class="word-list"></ul></section>
+      <section class="result-card wrong"><div class="result-heading"><h2>Wrong</h2><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="wrong-words" class="word-list"></ul></section>
+      <section class="result-card duplicate"><div class="result-heading"><h2>Duplicates</h2><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="duplicate-words" class="word-list"></ul></section>
       <section class="result-card peer-reports"><div class="result-heading"><h2>Player reports</h2><span class="aesthetic-label">Reported scores</span></div><ul id="peer-result-list" class="player-list"></ul></section>
     </div>
     <div class="result-actions">
@@ -281678,10 +281678,16 @@ body.game-viewport {
       li.textContent = message;
       list.append(li);
     }
-    function replaceWords(list, words, emptyMessage) {
+    function replaceWords(list, words, emptyMessage, total) {
+      var sorted = (words || []).slice().sort();
+      var count = list.previousElementSibling.querySelector(".word-count");
+      setText(count, sorted.length + "/" + total);
+      var denominator = list.id === "wrong-words" || list.id === "duplicate-words"
+        ? "submitted words" : "valid board words";
+      count.setAttribute("aria-label", sorted.length + " of " + total + " " + denominator);
       list.replaceChildren();
-      if (!words || words.length === 0) return appendEmpty(list, emptyMessage);
-      words.forEach(function (word) {
+      if (sorted.length === 0) return appendEmpty(list, emptyMessage);
+      sorted.forEach(function (word) {
         var li = document.createElement("li");
         li.textContent = String(word);
         list.append(li);
@@ -281751,10 +281757,14 @@ body.game-viewport {
       var words = state.submittedWords || [];
       if (generation === lastPaperGeneration && words.length === lastPaperLength) return;
       var slots = El.game.paper.querySelectorAll(".words");
-      var visible = words.slice(-slots.length);
-      Array.prototype.forEach.call(slots, function (slot, index) {
-        slot.textContent = visible[index] || "";
-      });
+      var reset = generation !== lastPaperGeneration || lastPaperLength === null || words.length < lastPaperLength;
+      if (reset) Array.prototype.forEach.call(slots, function (slot) { slot.textContent = ""; });
+      if (slots.length) {
+        var start = Math.max(reset ? 0 : lastPaperLength, words.length - slots.length);
+        for (var index = start; index < words.length; index += 1) {
+          slots[index % slots.length].textContent = words[index];
+        }
+      }
       lastPaperGeneration = generation;
       lastPaperLength = words.length;
     }
@@ -281824,13 +281834,15 @@ body.game-viewport {
       var common = state.commonWords || new Set();
       var correct = result.correct.filter(function (word) { return !common.has(word); });
       var commonList = result.correct.filter(function (word) { return common.has(word); });
+      var boardTotal = result.correct.length + (result.missed || []).length;
+      var submissionTotal = result.correct.length + result.wrong.length + result.duplicates.length;
       setText(El.results.score, result.score);
-      replaceWords(El.results.correctWords, correct, "No unique correct words.");
-      replaceWords(El.results.commonWords, commonList, "No common words yet.");
+      replaceWords(El.results.correctWords, correct, "No unique correct words.", boardTotal);
+      replaceWords(El.results.commonWords, commonList, "No common words yet.", boardTotal);
       El.results.missedCard.hidden = state.mode !== "solo";
-      replaceWords(El.results.missedWords, result.missed || [], "You found every board word.");
-      replaceWords(El.results.wrongWords, result.wrong, "No wrong words.");
-      replaceWords(El.results.duplicateWords, result.duplicates, "No duplicates.");
+      replaceWords(El.results.missedWords, result.missed || [], "You found every board word.", boardTotal);
+      replaceWords(El.results.wrongWords, result.wrong, "No wrong words.", submissionTotal);
+      replaceWords(El.results.duplicateWords, result.duplicates, "No duplicates.", submissionTotal);
       El.results.peerReports.replaceChildren();
       if (state.mode === "multiplayer" && state.resultsByPeer && state.resultsByPeer.size) {
         state.resultsByPeer.forEach(function (report, key) {
