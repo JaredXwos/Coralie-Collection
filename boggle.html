@@ -280899,6 +280899,9 @@ body.game-viewport {
   .game-viewport .col { padding: .4rem; }
   .game-viewport .words { font-size: clamp(.75rem, 1.2vw, .95rem); }
 }
+.score-breakdown-panel { margin: 0 0 1rem; padding: .8rem 1rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--strong); }
+#score-breakdown { margin: 0; font: 700 clamp(1.1rem, 4vw, 1.6rem) "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
+.score-breakdown-panel .aesthetic-label { margin: .4rem 0 0; }
 </style>
 </head>
 <body>
@@ -281001,6 +281004,10 @@ body.game-viewport {
       <div><p class="eyebrow">Round complete</p><h1 id="results-title">Results</h1></div>
       <div class="score-card"><span>Final score</span><strong id="results-score">0</strong></div>
     </header>
+    <div class="score-breakdown-panel">
+      <p id="score-breakdown" aria-live="polite">0 + 0 − 0 = 0</p>
+      <p class="aesthetic-label">Valid word count + bonus points − penalties = total</p>
+    </div>
     <div class="results-grid">
       <section class="result-card correct"><div class="result-heading"><h2>Correct</h2><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="correct-words" class="word-list"></ul></section>
       <section class="result-card common"><div class="result-heading"><h2>Common</h2><span class="aesthetic-label">Score unchanged</span><span class="count-badge word-count" aria-label="0 of 0 words">0/0</span></div><ul id="common-words" class="word-list" aria-live="polite"></ul></section>
@@ -281837,6 +281844,13 @@ body.game-viewport {
       var boardTotal = result.correct.length + (result.missed || []).length;
       var submissionTotal = result.correct.length + result.wrong.length + result.duplicates.length;
       setText(El.results.score, result.score);
+      var validCount = result.correct.length;
+      var validPoints = BoggleEngine.evaluate(result.correct, new Set(result.correct)).score;
+      var bonusPoints = validPoints - validCount;
+      var penaltyPoints = validPoints - result.score;
+      var breakdown = byId("score-breakdown");
+      setText(breakdown, validCount + " + " + bonusPoints + " − " + penaltyPoints + " = " + result.score);
+      breakdown.setAttribute("aria-label", validCount + " valid words plus " + bonusPoints + " bonus points minus " + penaltyPoints + " penalty points equals " + result.score);
       replaceWords(El.results.correctWords, correct, "No unique correct words.", boardTotal);
       replaceWords(El.results.commonWords, commonList, "No common words yet.", boardTotal);
       El.results.missedCard.hidden = state.mode !== "solo";
